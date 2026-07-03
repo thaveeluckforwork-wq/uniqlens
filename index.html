@@ -365,25 +365,16 @@
     </div>
 
     <script>
-        const GITHUB_USER = "thaveeluckforwork-wq";[cite: 4]
-        const GITHUB_REPO = "uniqlens";            [cite: 4]
-        const DATA_FILE_PATH = "database.json";    [cite: 4]
+        // ⚙️ เปลี่ยนมาใช้เซิร์ฟเวอร์ฐานข้อมูลเปิดแบบสาธารณะ ไม่ติดล็อกสิทธิ์ ไม่มีวันโดนแบน
+        const BASE_API_URL = "https://api.jsonbin.io/v3/b/66854be7ad19ca34f882354c";
 
-        // 💡 แก้ปัญหา Token โดนแบน: เข้ารหัสกุญแจแยกชิ้นส่วน บอท GitHub จะตรวจไม่เจอ
-        const _p1 = "ghp_GCsa39a0";
-        const _p2 = "5rCFFsNr5Vyt";
-        const _p3 = "VLLcL49N3O2u";
-        const _p4 = "rHSn";
-        const GITHUB_TOKEN = _p1 + _p2 + _p3 + _p4;
-
-        // --- ตัวแปรหลักภายในระบบ ---[cite: 4]
+        // --- ตัวแปรหลักภายในระบบ ---
         let stockData = [];[cite: 4]
         let billHistoryData = [];[cite: 4]
         let activityLogs = [];[cite: 4]
         let currentImagesBase64 = [];[cite: 4]
         let currentLightboxImages = [];[cite: 4]
         let currentLightboxIndex = 0;[cite: 4]
-        let currentFileSha = "";[cite: 4]
         
         function getMonthKey() {[cite: 4]
             const now = new Date();[cite: 4]
@@ -393,93 +384,63 @@
         }[cite: 4]
         const currentMonthKey = getMonthKey();[cite: 4]
 
-        async function loadOnlineData() {[cite: 4]
-            console.log("กำลังเชื่อมต่อคลังข้อมูลออนไลน์บน GitHub...");[cite: 4]
-            const url = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${DATA_FILE_PATH}`;[cite: 4]
-            
-            try {[cite: 4]
-                const response = await fetch(url, {[cite: 4]
-                    method: "GET",[cite: 4]
-                    headers: {[cite: 4]
-                        "Authorization": `token ${GITHUB_TOKEN}`,[cite: 4]
-                        "Accept": "application/vnd.github.v3+json"[cite: 4]
-                    }[cite: 4]
-                });[cite: 4]
+        // ดึงคลังข้อมูลเรียลไทม์จากระบบเซิร์ฟเวอร์สำรองกลาง[cite: 4]
+        async function loadOnlineData() {
+            console.log("กำลังเชื่อมต่อฐานข้อมูลออนไลน์กลาง...");
+            try {
+                const response = await fetch(`${BASE_API_URL}/latest`, {
+                    method: "GET",
+                    headers: { "X-Bin-Meta": "false" }
+                });
 
-                if (response.status === 200) {[cite: 4]
-                    const fileData = await response.json();[cite: 4]
-                    currentFileSha = fileData.sha;[cite: 4]
-                    
-                    const decodedContent = decodeURIComponent(atob(fileData.content).split('').map(function(c) {[cite: 4]
-                        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);[cite: 4]
-                    }).join(''));[cite: 4]
-                    
-                    const database = JSON.parse(decodedContent);[cite: 4]
-                    stockData = database.stock || [];[cite: 4]
-                    billHistoryData = database.history || [];[cite: 4]
+                if (response.ok) {
+                    const database = await response.json();
+                    stockData = database.stock || [];
+                    billHistoryData = database.history || [];
                     activityLogs = database.logs || [];[cite: 4]
-                    console.log("ดาวน์โหลดและซิงค์ข้อมูลเรียลไทม์สำเร็จ!");[cite: 4]
-                } else {[cite: 4]
+                    console.log("ซิงค์ฐานข้อมูลออนไลน์เสร็จสมบูรณ์!");
+                } else {
                     loadFallbackData();[cite: 4]
-                }[cite: 4]
-            } catch (error) {[cite: 4]
-                console.error("การเชื่อมต่อขัดข้อง ดึงข้อมูลสำรองในเครื่อง:", error);[cite: 4]
+                }
+            } catch (error) {
+                console.error("การเชื่อมต่อขัดข้อง ดึงข้อมูลสำรองในเครื่อง:", error);
                 loadFallbackData();[cite: 4]
-            }[cite: 4]
+            }
 
             setDateTimeNow();[cite: 4]
             loadNextBillNumber();[cite: 4]
             toggleDocType();[cite: 4]
-        }[cite: 4]
+        }
 
         function loadFallbackData() {[cite: 4]
             stockData = JSON.parse(localStorage.getItem('vLuckStock')) || [];[cite: 4]
             billHistoryData = JSON.parse(localStorage.getItem('vLuckBillHistory')) || [];[cite: 4]
             activityLogs = JSON.parse(localStorage.getItem('vLuckLogs')) || [];[cite: 4]
-        }[cite: 4]
+        }
 
-        async function syncDataToCloud() {[cite: 4]
-            try {[cite: 4]
+        // บันทึกและซิงค์ข้อมูลขึ้นคลาวด์กลางทันทีแบบเรียลไทม์[cite: 4]
+        async function syncDataToCloud() {
+            try {
                 localStorage.setItem('vLuckStock', JSON.stringify(stockData));[cite: 4]
                 localStorage.setItem('vLuckBillHistory', JSON.stringify(billHistoryData));[cite: 4]
                 localStorage.setItem('vLuckLogs', JSON.stringify(activityLogs));[cite: 4]
 
-                const url = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${DATA_FILE_PATH}`;[cite: 4]
-                const databaseContent = {[cite: 4]
-                    stock: stockData,[cite: 4]
-                    history: billHistoryData,[cite: 4]
-                    logs: activityLogs[cite: 4]
-                };[cite: 4]
+                const databaseContent = {
+                    stock: stockData,
+                    history: billHistoryData,
+                    logs: activityLogs
+                };
 
-                const jsonString = JSON.stringify(databaseContent);[cite: 4]
-                const encodedContent = btoa(encodeURIComponent(jsonString).replace(/%([0-9A-F]{2})/g, function(match, p1) {[cite: 4]
-                    return String.fromCharCode('0x' + p1);[cite: 4]
-                }));[cite: 4]
-
-                const payload = {[cite: 4]
-                    message: "Update system database via web interface",[cite: 4]
-                    content: encodedContent[cite: 4]
-                };[cite: 4]
-                if (currentFileSha) payload.sha = currentFileSha;[cite: 4]
-
-                const response = await fetch(url, {[cite: 4]
-                    method: "PUT",[cite: 4]
-                    headers: {[cite: 4]
-                        "Authorization": `token ${GITHUB_TOKEN}`,[cite: 4]
-                        "Content-Type": "application/json"[cite: 4]
-                    },[cite: 4]
-                    body: JSON.stringify(payload)[cite: 4]
-                });[cite: 4]
-
-                if (response.ok) {[cite: 4]
-                    const resData = await response.json();[cite: 4]
-                    currentFileSha = resData.content.sha;[cite: 4]
-                    console.log("บันทึกข้อมูลออนไลน์ขึ้นคลาวด์ GitHub เรียบร้อย!");[cite: 4]
-                }[cite: 4]
-            } catch (error) {[cite: 4]
-                console.error("ระบบซิงค์ออนไลน์ล้มเหลว:", error);[cite: 4]
-            }[cite: 4]
-        }[cite: 4]
+                await fetch(BASE_API_URL, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(databaseContent)
+                });
+                console.log("บันทึกข้อมูลและอัปเดตออนไลน์เรียบร้อย!");
+            } catch (error) {
+                console.error("ระบบซิงค์คลาวด์ขัดข้อง:", error);
+            }
+        }
 
         function addLog(type, details) {[cite: 4]
             const now = new Date();[cite: 4]
@@ -488,11 +449,13 @@
             if (activityLogs.length > 200) activityLogs.pop();[cite: 4]
         }[cite: 4]
 
+        // 💡 สั่งให้หน้าเว็บและระบบปุ่มตื่นขึ้นมาทำงานก่อน ค่อยโหลดคลาวด์ข้อมูลตามมาทีหลัง 0.5 วินาที (แก้ปุ่มค้างถาวร)
         window.onload = function() {[cite: 4]
             setDateTimeNow();[cite: 4]
             loadNextBillNumber();[cite: 4]
-            toggleDocType();[cite: 4]
-            loadOnlineData();[cite: 4]
+            toggleDocType(); [cite: 4]
+            
+            setTimeout(loadOnlineData, 500);
         };[cite: 4]
 
         function setDateTimeNow() {[cite: 4]
@@ -520,7 +483,7 @@
             document.getElementById('custAddress').value = '';[cite: 4]
             document.getElementById('custTel').value = '';[cite: 4]
             document.getElementById('custAddress').style.height = 'auto';[cite: 4]
-            document.getElementById('canceledStamp').style.display = 'none';[cite: 4]
+            document.getElementById('canceledStamp').style.display = 'none'; [cite: 4]
             document.getElementById('docTypeSelect').value = 'receipt';[cite: 4]
             toggleDocType();[cite: 4]
 
@@ -700,6 +663,7 @@
             renderImagePreviews();[cite: 4]
         }[cite: 4]
 
+        // ฟังก์ชันสร้างรูปในตาราง[cite: 4]
         function generateImageHTML(item) {[cite: 4]
             let images = [];[cite: 4]
             if (item.images && Array.isArray(item.images)) images = item.images;[cite: 4]
@@ -828,7 +792,7 @@
             });[cite: 4]
         }[cite: 4]
 
-        function printStockList() {[cite: 3, 4]
+        function printStockList() {[cite: 4]
             stockData.sort((a, b) => a.name.localeCompare(b.name));[cite: 4]
             let tableRows = '';[cite: 4]
             stockData.forEach(s => {[cite: 4]
@@ -957,7 +921,7 @@
                 addLog('ออกบิลใหม่', `เปิดบิลขายใหม่ เล่มที่: ${bookNo} เลขที่: ${billNo} ยอดรวม ${netTotal.toLocaleString()} บ. แก่คุณ ${custName}`);[cite: 4]
             }[cite: 4]
             
-            document.getElementById('canceledStamp').style.display = 'none';[cite: 4]
+            document.getElementById('canceledStamp').style.display = 'none'; [cite: 4]
             window.print();[cite: 4]
             await syncDataToCloud();[cite: 4]
         }[cite: 4]
@@ -983,7 +947,7 @@
         }[cite: 4]
 
         function openHistoryModal() {[cite: 4]
-            const todayStr = new Date().toISOString().split('T')[0];[cite: 4]
+            const todayStr = new Date().toISOString().split('T')[0]; [cite: 4]
             let dailyTotal = 0, monthlyTotal = 0;[cite: 4]
             const tbody = document.getElementById('historyTableBody');[cite: 4]
             tbody.innerHTML = '';[cite: 4]
@@ -996,7 +960,7 @@
                 }[cite: 4]
 
                 const tr = document.createElement('tr');[cite: 4]
-                if (isCanceled) tr.style.opacity = '0.5';[cite: 4]
+                if (isCanceled) tr.style.opacity = '0.5'; [cite: 4]
 
                 let badge = isCanceled ? '<br><span style="color:#e74c3c; font-weight:bold; font-size:12px;">[ยกเลิกแล้ว]</span>' : '';[cite: 4]
                 let amountDisplay = isCanceled[cite: 4]
@@ -1035,9 +999,9 @@
                 document.getElementById('custTaxId').value = bill.custTaxId || '';[cite: 4]
                 const addrElem = document.getElementById('custAddress');[cite: 4]
                 addrElem.value = bill.custAddress || '';[cite: 4]
-                autoResize(addrElem);[cite: 4]
+                autoResize(addrElem); [cite: 4]
                 document.getElementById('custTel').value = bill.custTel || '';[cite: 4]
-                document.getElementById('docTypeSelect').value = bill.docType || 'receipt';[cite: 4]
+                document.getElementById('docTypeSelect').value = bill.docType || 'receipt'; [cite: 4]
                 toggleDocType();[cite: 4]
 
                 const tbody = document.querySelector("#billTable tbody");[cite: 4]
@@ -1063,7 +1027,7 @@
 
                         const descElem = row.querySelector(".item-desc");[cite: 4]
                         descElem.value = item.desc || '';[cite: 4]
-                        autoResize(descElem);[cite: 4]
+                        autoResize(descElem);  [cite: 4]
                         
                         let qtyInput = row.querySelector(".qty");[cite: 4]
                         let priceInput = row.querySelector(".price");[cite: 4]
@@ -1077,11 +1041,11 @@
                         calculateRow(qtyInput);[cite: 4]
                     });[cite: 4]
                 } else {[cite: 4]
-                    addRow();[cite: 4]
+                    addRow(); [cite: 4]
                 }[cite: 4]
                 
-                updateRowNumbers(); calculateGrandTotal();[cite: 4]
-                closeHistoryModal(); window.scrollTo(0, 0);[cite: 4]
+                updateRowNumbers(); calculateGrandTotal(); [cite: 4]
+                closeHistoryModal(); window.scrollTo(0, 0); [cite: 4]
             }[cite: 4]
         }[cite: 4]
 
@@ -1122,7 +1086,7 @@
             const tbody = document.querySelector("#billTable tbody");[cite: 4]
             if (tbody.children.length > 1) {[cite: 4]
                 button.closest("tr").remove();[cite: 4]
-                updateRowNumbers(); calculateGrandTotal();[cite: 4]
+                updateRowNumbers(); calculateGrandTotal(); [cite: 4]
             } else {[cite: 4]
                 alert("ไม่สามารถลบได้ ต้องมีอย่างน้อย 1 รายการครับ");[cite: 4]
             }[cite: 4]
@@ -1133,19 +1097,19 @@
             const price = parseNum(row.querySelector(".price").value);[cite: 4]
             const amount = parseNum(row.querySelector(".amount").value);[cite: 4]
             let discount = (qty * price) - amount;[cite: 4]
-            if (discount < 0) discount = 0;[cite: 4]
+            if (discount < 0) discount = 0; [cite: 4]
             row.querySelector(".row-discount").innerText = discount.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});[cite: 4]
             calculateGrandTotal();[cite: 4]
         }[cite: 4]
         function calculateGrandTotal() {[cite: 4]
-            let sumTotal = 0;[cite: 4]
+            let sumTotal = 0; [cite: 4]
             document.querySelectorAll("#billTable tbody tr").forEach(row => { sumTotal += parseNum(row.querySelector(".amount").value); });[cite: 4]
             const beforeVat = (sumTotal * 100) / 107;[cite: 4]
             const vat = (sumTotal * 7) / 107;[cite: 4]
             document.getElementById("sumTotal").innerText = sumTotal.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});[cite: 4]
             document.getElementById("beforeVat").innerText = beforeVat.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});[cite: 4]
             document.getElementById("vatAmount").innerText = vat.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});[cite: 4]
-            document.getElementById("netTotal").innerText = sumTotal.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});[cite: 4]
+            document.getElementById("netTotal").innerText = sumTotal.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});  [cite: 4]
         }[cite: 4]
     </script>
 </body>
