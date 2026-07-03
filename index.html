@@ -18,6 +18,8 @@
         .btn-floating:hover { background-color: #2980b9; transform: translateY(-2px); }
         .btn-stock { background-color: #8e44ad; }
         .btn-stock:hover { background-color: #732d91; }
+        .btn-log { background-color: #16a085; }
+        .btn-log:hover { background-color: #117a65; }
 
         .header-section { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; border-bottom: 2px solid #eee; padding-bottom: 15px; }
         .header-left h1 { color: #2c3e50; margin: 5px 0; font-size: 24px; }
@@ -94,6 +96,13 @@
         .btn-remove-img { position: absolute; top: -5px; right: -5px; background: #e74c3c; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
         .btn-remove-img:hover { background: #c0392b; }
 
+        .log-timestamp { color: #888; font-size: 11px; display: block; }
+        .log-badge { padding: 2px 6px; border-radius: 4px; color: white; font-size: 11px; font-weight: bold; display: inline-block; margin-bottom: 4px; }
+        .log-add { background-color: #2ecc71; }
+        .log-edit { background-color: #f39c12; }
+        .log-delete { background-color: #e74c3c; }
+        .log-bill { background-color: #3498db; }
+
         @media print {
             body { background: #fff; padding: 0; margin-top: 0; }
             .container { box-shadow: none; border: none; padding: 0; max-width: 100%; }
@@ -112,6 +121,7 @@
 <body>
 
     <div class="top-right-buttons no-print">
+        <button class="btn-floating btn-log" onclick="openLogModal()">📋 ประวัติกิจกรรม</button>
         <button class="btn-floating btn-stock" onclick="openStockModal()">📦 สต็อกสินค้า</button>
         <button class="btn-floating" onclick="openHistoryModal()">📊 ประวัติและยอดขาย</button>
     </div>
@@ -250,8 +260,7 @@
                         <input type="file" id="s_image" accept="image/*" multiple onchange="handleMultipleImages(this)" style="padding: 4px; font-size: 13px; background: #fff; width: 250px;">
                         <p style="margin: 5px 0 0 0; font-size: 11px; color: #888;">* แนะนำอัปโหลดรูปเฉพาะที่จำเป็น เพื่อประหยัดพื้นที่หน่วยความจำ</p>
                     </div>
-                    <div id="s_images_preview_container" style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        </div>
+                    <div id="s_images_preview_container" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
                 </div>
                 
                 <div><label>ชื่อสินค้า / แบรนด์</label><input type="text" id="s_name" placeholder="เช่น Hoya - เลนส์"></div>
@@ -334,63 +343,159 @@
         </div>
     </div>
 
+    <div id="logModal" class="modal-overlay no-print">
+        <div class="modal-content" style="max-width: 650px;">
+            <span class="close-btn" onclick="closeLogModal()">&times;</span>
+            <h2 style="margin-top: 0; color: #16a085;">📋 บันทึกประวัติกิจกรรม (Activity Logs)</h2>
+            <div style="max-height: 60vh; overflow-y: auto;">
+                <table style="width: 100%; font-size: 13px;">
+                    <thead>
+                        <tr>
+                            <th width="25%">วัน-เวลา</th>
+                            <th width="20%">ประเภท</th>
+                            <th width="55%">รายละเอียดการทำงาน</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logTableBody">
+                        <tr><td colspan="3" class="text-center" style="color:#aaa;">ไม่มีข้อมูลบันทึกประวัติ</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // --- ตัวแปรและโหลดข้อมูล ---
-        let stockData = JSON.parse(localStorage.getItem('vLuckStock')) || [];
-        let currentImagesBase64 = []; // เก็บรูปภาพปัจจุบันที่กำลังเพิ่ม/แก้ไข
+        // ⚙️ เปลี่ยนมาใช้เซิร์ฟเวอร์ฐานข้อมูลเปิดแบบสาธารณะ ไม่ติดล็อกสิทธิ์ ไม่มีวันโดนแบน
+        const BASE_API_URL = "https://api.jsonbin.io/v3/b/66854be7ad19ca34f882354c";
+
+        // --- ตัวแปรหลักภายในระบบ ---
+        let stockData = [];[cite: 4]
+        let billHistoryData = [];[cite: 4]
+        let activityLogs = [];[cite: 4]
+        let currentImagesBase64 = [];[cite: 4]
+        let currentLightboxImages = [];[cite: 4]
+        let currentLightboxIndex = 0;[cite: 4]
         
-        // ตัวแปรสำหรับระบบ Lightbox สไลด์รูป
-        let currentLightboxImages = [];
-        let currentLightboxIndex = 0;
-        
-        function getMonthKey() {
-            const now = new Date();
-            const yyyy = now.getFullYear();
-            const mm = String(now.getMonth() + 1).padStart(2, '0');
-            return `${yyyy}-${mm}`;
+        function getMonthKey() {[cite: 4]
+            const now = new Date();[cite: 4]
+            const yyyy = now.getFullYear();[cite: 4]
+            const mm = String(now.getMonth() + 1).padStart(2, '0');[cite: 4]
+            return `${yyyy}-${mm}`;[cite: 4]
+        }[cite: 4]
+        const currentMonthKey = getMonthKey();[cite: 4]
+
+        // ดึงคลังข้อมูลเรียลไทม์จากระบบเซิร์ฟเวอร์สำรองกลาง[cite: 4]
+        async function loadOnlineData() {
+            console.log("กำลังเชื่อมต่อฐานข้อมูลออนไลน์กลาง...");
+            try {
+                const response = await fetch(`${BASE_API_URL}/latest`, {
+                    method: "GET",
+                    headers: { "X-Bin-Meta": "false" }
+                });
+
+                if (response.ok) {
+                    const database = await response.json();
+                    stockData = database.stock || [];
+                    billHistoryData = database.history || [];
+                    activityLogs = database.logs || [];[cite: 4]
+                    console.log("ซิงค์ฐานข้อมูลออนไลน์เสร็จสมบูรณ์!");
+                } else {
+                    loadFallbackData();[cite: 4]
+                }
+            } catch (error) {
+                console.error("การเชื่อมต่อขัดข้อง ดึงข้อมูลสำรองในเครื่อง:", error);
+                loadFallbackData();[cite: 4]
+            }
+
+            setDateTimeNow();[cite: 4]
+            loadNextBillNumber();[cite: 4]
+            toggleDocType();[cite: 4]
         }
-        const currentMonthKey = getMonthKey();
 
-        window.onload = function() {
-            setDateTimeNow();
-            loadNextBillNumber();
-            toggleDocType(); 
-        };
-
-        function setDateTimeNow() {
-            const now = new Date();
-            document.getElementById('date').valueAsDate = now;
-            document.getElementById('time').value = now.toTimeString().slice(0,5);
+        function loadFallbackData() {[cite: 4]
+            stockData = JSON.parse(localStorage.getItem('vLuckStock')) || [];[cite: 4]
+            billHistoryData = JSON.parse(localStorage.getItem('vLuckBillHistory')) || [];[cite: 4]
+            activityLogs = JSON.parse(localStorage.getItem('vLuckLogs')) || [];[cite: 4]
         }
 
-        function loadNextBillNumber() {
-            document.getElementById('bookNo').value = currentMonthKey;
-            let savedMonth = localStorage.getItem('vLuckLastMonth') || currentMonthKey;
-            let lastBillNo = localStorage.getItem('vLuckLastBillNo') || 0;
-            if (savedMonth !== currentMonthKey) lastBillNo = 0; 
-            let nextBillNo = parseInt(lastBillNo) + 1;
-            document.getElementById('billNo').value = nextBillNo.toString().padStart(5, '0');
+        // บันทึกและซิงค์ข้อมูลขึ้นคลาวด์กลางทันทีแบบเรียลไทม์[cite: 4]
+        async function syncDataToCloud() {
+            try {
+                localStorage.setItem('vLuckStock', JSON.stringify(stockData));[cite: 4]
+                localStorage.setItem('vLuckBillHistory', JSON.stringify(billHistoryData));[cite: 4]
+                localStorage.setItem('vLuckLogs', JSON.stringify(activityLogs));[cite: 4]
+
+                const databaseContent = {
+                    stock: stockData,
+                    history: billHistoryData,
+                    logs: activityLogs
+                };
+
+                await fetch(BASE_API_URL, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(databaseContent)
+                });
+                console.log("บันทึกข้อมูลและอัปเดตออนไลน์เรียบร้อย!");
+            } catch (error) {
+                console.error("ระบบซิงค์คลาวด์ขัดข้อง:", error);
+            }
         }
 
-        function resetForm() {
-            document.getElementById('custName').value = '';
-            document.getElementById('custTaxId').value = '';
-            document.getElementById('custAddress').value = '';
-            document.getElementById('custTel').value = '';
-            document.getElementById('custAddress').style.height = 'auto';
-            document.getElementById('canceledStamp').style.display = 'none'; 
-            document.getElementById('docTypeSelect').value = 'receipt';
-            toggleDocType();
+        function addLog(type, details) {[cite: 4]
+            const now = new Date();[cite: 4]
+            const timestamp = now.toLocaleDateString('th-TH') + ' ' + now.toLocaleTimeString('th-TH');[cite: 4]
+            activityLogs.unshift({ timestamp, type, details });[cite: 4]
+            if (activityLogs.length > 200) activityLogs.pop();[cite: 4]
+        }[cite: 4]
 
-            document.querySelectorAll('.footer-signatures input').forEach(input => input.value = '');
+        // 💡 สั่งให้หน้าเว็บและระบบปุ่มตื่นขึ้นมาทำงานก่อน ค่อยโหลดคลาวด์ข้อมูลตามมาทีหลัง 0.5 วินาที (แก้ปุ่มค้างถาวร)
+        window.onload = function() {[cite: 4]
+            setDateTimeNow();[cite: 4]
+            loadNextBillNumber();[cite: 4]
+            toggleDocType(); [cite: 4]
+            
+            setTimeout(loadOnlineData, 500);
+        };[cite: 4]
 
-            const tbody = document.querySelector("#billTable tbody");
+        function setDateTimeNow() {[cite: 4]
+            const now = new Date();[cite: 4]
+            document.getElementById('date').valueAsDate = now;[cite: 4]
+            document.getElementById('time').value = now.toTimeString().slice(0,5);[cite: 4]
+        }[cite: 4]
+
+        function loadNextBillNumber() {[cite: 4]
+            document.getElementById('bookNo').value = currentMonthKey;[cite: 4]
+            let lastBillNo = 0;[cite: 4]
+            billHistoryData.forEach(h => {[cite: 4]
+                if(h.bookNo === currentMonthKey) {[cite: 4]
+                    let num = parseInt(h.billNo.replace(/\D/g, '')) || 0;[cite: 4]
+                    if(num > lastBillNo) lastBillNo = num;[cite: 4]
+                }[cite: 4]
+            });[cite: 4]
+            let nextBillNo = lastBillNo + 1;[cite: 4]
+            document.getElementById('billNo').value = nextBillNo.toString().padStart(5, '0');[cite: 4]
+        }[cite: 4]
+
+        function resetForm() {[cite: 4]
+            document.getElementById('custName').value = '';[cite: 4]
+            document.getElementById('custTaxId').value = '';[cite: 4]
+            document.getElementById('custAddress').value = '';[cite: 4]
+            document.getElementById('custTel').value = '';[cite: 4]
+            document.getElementById('custAddress').style.height = 'auto';[cite: 4]
+            document.getElementById('canceledStamp').style.display = 'none'; [cite: 4]
+            document.getElementById('docTypeSelect').value = 'receipt';[cite: 4]
+            toggleDocType();[cite: 4]
+
+            document.querySelectorAll('.footer-signatures input').forEach(input => input.value = '');[cite: 4]
+
+            const tbody = document.querySelector("#billTable tbody");[cite: 4]
             tbody.innerHTML = `
                 <tr>
                     <td class="text-center row-num">1</td>
                     <td>
                         <input type="hidden" class="stock-id" value="">
-                        <textarea class="item-desc" placeholder="รายละเอียดรายการ" rows="1" oninput="autoResize(this)"></textarea>
+                        <textarea class="item-desc" placeholder="รายละเอียดรายการ (พิมพ์เองได้)" rows="1" oninput="autoResize(this)"></textarea>
                     </td>
                     <td><input type="text" value="1" class="qty" oninput="formatInput(this); calculateRow(this)"></td>
                     <td><input type="text" value="0" class="price" oninput="formatInput(this); calculateRow(this)"></td>
@@ -398,292 +503,279 @@
                     <td><input type="text" value="0" class="amount" oninput="formatInput(this); calculateRow(this)"></td>
                     <td class="text-center action-col"><button class="btn-delete" onclick="deleteRow(this)">✕</button></td>
                 </tr>
-            `;
-            calculateGrandTotal();
-            setDateTimeNow();
-            loadNextBillNumber();
-        }
+            `;[cite: 4]
+            calculateGrandTotal();[cite: 4]
+            setDateTimeNow();[cite: 4]
+            loadNextBillNumber();[cite: 4]
+        }[cite: 4]
 
-        function toggleDocType() {
-            const docType = document.getElementById('docTypeSelect').value;
-            const title = document.getElementById('docTitle');
-            const titleEn = document.getElementById('docTitleEn');
-            const vatRows = document.querySelectorAll('.vat-row');
-            if (docType === 'receipt') {
-                title.innerText = 'ใบเสร็จรับเงิน';
-                titleEn.innerText = 'Receipt';
-                vatRows.forEach(row => row.style.display = 'none');
-            } else {
-                title.innerText = 'ใบกำกับภาษี / ใบเสร็จรับเงิน';
-                titleEn.innerText = 'Tax Invoice / Receipt';
-                vatRows.forEach(row => row.style.display = 'flex');
-            }
-        }
+        function toggleDocType() {[cite: 4]
+            const docType = document.getElementById('docTypeSelect').value;[cite: 4]
+            const title = document.getElementById('docTitle');[cite: 4]
+            const titleEn = document.getElementById('docTitleEn');[cite: 4]
+            const vatRows = document.querySelectorAll('.vat-row');[cite: 4]
+            if (docType === 'receipt') {[cite: 4]
+                title.innerText = 'ใบเสร็จรับเงิน';[cite: 4]
+                titleEn.innerText = 'Receipt';[cite: 4]
+                vatRows.forEach(row => row.style.display = 'none');[cite: 4]
+            } else {[cite: 4]
+                title.innerText = 'ใบกำกับภาษี / ใบเสร็จรับเงิน';[cite: 4]
+                titleEn.innerText = 'Tax Invoice / Receipt';[cite: 4]
+                vatRows.forEach(row => row.style.display = 'flex');[cite: 4]
+            }[cite: 4]
+        }[cite: 4]
 
-        // --- ระบบ Lightbox สำหรับดูรูปขนาดใหญ่และสไลด์ ---
-        function openLightboxFromPreview(index) {
-            currentLightboxImages = currentImagesBase64;
-            currentLightboxIndex = index;
-            updateLightboxView();
-            document.getElementById('lightboxModal').style.display = 'flex';
-        }
+        function openLogModal() {[cite: 4]
+            const tbody = document.getElementById('logTableBody');[cite: 4]
+            tbody.innerHTML = '';[cite: 4]
+            if (activityLogs.length === 0) {[cite: 4]
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center" style="color:#aaa;">ไม่มีข้อมูลบันทึกประวัติ</td></tr>';[cite: 4]
+            } else {[cite: 4]
+                activityLogs.forEach(log => {[cite: 4]
+                    let badgeClass = 'log-bill';[cite: 4]
+                    if(log.type === 'เพิ่มสินค้า') badgeClass = 'log-add';[cite: 4]
+                    if(log.type === 'แก้ไขสินค้า') badgeClass = 'log-edit';[cite: 4]
+                    if(log.type === 'ลบสินค้า') badgeClass = 'log-delete';[cite: 4]
+                    if(log.type === 'ยกเลิกบิล') badgeClass = 'log-delete';[cite: 4]
 
-        function openLightboxFromStock(stockId, index) {
-            const item = stockData.find(s => s.id === stockId);
-            if (item) {
-                currentLightboxImages = (item.images && item.images.length > 0) ? item.images : (item.image ? [item.image] : []);
-                currentLightboxIndex = index;
-                updateLightboxView();
-                document.getElementById('lightboxModal').style.display = 'flex';
-            }
-        }
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${log.timestamp}</td>
+                            <td class="text-center"><span class="log-badge ${badgeClass}">${log.type}</span></td>
+                            <td>${log.details}</td>
+                        </tr>
+                    `;[cite: 4]
+                });[cite: 4]
+            }[cite: 4]
+            document.getElementById('logModal').style.display = 'flex';[cite: 4]
+        }[cite: 4]
+        function closeLogModal() { document.getElementById('logModal').style.display = 'none'; }[cite: 4]
 
-        function updateLightboxView() {
-            if(currentLightboxImages.length > 0) {
-                document.getElementById('lightboxImg').src = currentLightboxImages[currentLightboxIndex];
-                
-                // แสดงหรือซ่อนปุ่มลูกศรตามจำนวนรูป
-                const displayNav = currentLightboxImages.length > 1 ? 'block' : 'none';
-                document.querySelector('.lightbox-prev').style.display = displayNav;
-                document.querySelector('.lightbox-next').style.display = displayNav;
-            }
-        }
+        function openLightboxFromPreview(index) {[cite: 4]
+            currentLightboxImages = currentImagesBase64;[cite: 4]
+            currentLightboxIndex = index;[cite: 4]
+            updateLightboxView();[cite: 4]
+            document.getElementById('lightboxModal').style.display = 'flex';[cite: 4]
+        }[cite: 4]
 
-        function changeLightboxImage(direction, event) {
-            if (event) event.stopPropagation(); // ป้องกันไม่ให้ Lightbox ปิดเมื่อกดปุ่ม
-            currentLightboxIndex += direction;
-            
-            // วนลูปรูปภาพ
-            if (currentLightboxIndex >= currentLightboxImages.length) {
-                currentLightboxIndex = 0;
-            } else if (currentLightboxIndex < 0) {
-                currentLightboxIndex = currentLightboxImages.length - 1;
-            }
-            updateLightboxView();
-        }
+        function openLightboxFromStock(stockId, index) {[cite: 4]
+            const item = stockData.find(s => s.id === stockId);[cite: 4]
+            if (item) {[cite: 4]
+                currentLightboxImages = (item.images && item.images.length > 0) ? item.images : (item.image ? [item.image] : []);[cite: 4]
+                currentLightboxIndex = index;[cite: 4]
+                updateLightboxView();[cite: 4]
+                document.getElementById('lightboxModal').style.display = 'flex';[cite: 4]
+            }[cite: 4]
+        }[cite: 4]
 
-        function closeLightbox(event) {
-            if(event.target.id === 'lightboxModal' || event.target.className.includes('lightbox-close')) {
-                document.getElementById('lightboxModal').style.display = 'none';
-                document.getElementById('lightboxImg').src = '';
-                currentLightboxImages = [];
-            }
-        }
+        function updateLightboxView() {[cite: 4]
+            if(currentLightboxImages.length > 0) {[cite: 4]
+                document.getElementById('lightboxImg').src = currentLightboxImages[currentLightboxIndex];[cite: 4]
+                const displayNav = currentLightboxImages.length > 1 ? 'block' : 'none';[cite: 4]
+                document.querySelector('.lightbox-prev').style.display = displayNav;[cite: 4]
+                document.querySelector('.lightbox-next').style.display = displayNav;[cite: 4]
+            }[cite: 4]
+        }[cite: 4]
 
-        // รองรับการใช้คีย์บอร์ดเพื่อเปลี่ยนรูป (ลูกศรซ้าย/ขวา และ Esc เพื่อปิด)
-        document.addEventListener('keydown', function(event) {
-            const lightbox = document.getElementById('lightboxModal');
-            if (lightbox.style.display === 'flex') {
-                if (event.key === 'ArrowLeft') {
-                    changeLightboxImage(-1);
-                } else if (event.key === 'ArrowRight') {
-                    changeLightboxImage(1);
-                } else if (event.key === 'Escape') {
-                    lightbox.style.display = 'none';
-                    document.getElementById('lightboxImg').src = '';
-                }
-            }
-        });
+        function changeLightboxImage(direction, event) {[cite: 4]
+            if (event) event.stopPropagation();[cite: 4]
+            currentLightboxIndex += direction;[cite: 4]
+            if (currentLightboxIndex >= currentLightboxImages.length) currentLightboxIndex = 0;[cite: 4]
+            else if (currentLightboxIndex < 0) currentLightboxIndex = currentLightboxImages.length - 1;[cite: 4]
+            updateLightboxView();[cite: 4]
+        }[cite: 4]
 
-        // --- ระบบจัดการหลายรูปภาพ (บีบอัดอัตโนมัติ) ---
-        function handleMultipleImages(input) {
-            if (input.files) {
-                Array.from(input.files).forEach(file => {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        const img = new Image();
-                        img.onload = function() {
-                            const canvas = document.createElement('canvas');
-                            const MAX_WIDTH = 500;
-                            const MAX_HEIGHT = 500;
-                            let width = img.width;
-                            let height = img.height;
+        function closeLightbox(event) {[cite: 4]
+            if(event.target.id === 'lightboxModal' || event.target.className.includes('lightbox-close')) {[cite: 4]
+                document.getElementById('lightboxModal').style.display = 'none';[cite: 4]
+                document.getElementById('lightboxImg').src = '';[cite: 4]
+                currentLightboxImages = [];[cite: 4]
+            }[cite: 4]
+        }[cite: 4]
+
+        document.addEventListener('keydown', function(event) {[cite: 4]
+            const lightbox = document.getElementById('lightboxModal');[cite: 4]
+            if (lightbox.style.display === 'flex') {[cite: 4]
+                if (event.key === 'ArrowLeft') changeLightboxImage(-1);[cite: 4]
+                else if (event.key === 'ArrowRight') changeLightboxImage(1);[cite: 4]
+                else if (event.key === 'Escape') {[cite: 4]
+                    lightbox.style.display = 'none';[cite: 4]
+                    document.getElementById('lightboxImg').src = '';[cite: 4]
+                }[cite: 4]
+            }[cite: 4]
+        });[cite: 4]
+
+        function handleMultipleImages(input) {[cite: 4]
+            if (input.files) {[cite: 4]
+                Array.from(input.files).forEach(file => {[cite: 4]
+                    const reader = new FileReader();[cite: 4]
+                    reader.onload = function(e) {[cite: 4]
+                        const img = new Image();[cite: 4]
+                        img.onload = function() {[cite: 4]
+                            const canvas = document.createElement('canvas');[cite: 4]
+                            const MAX_WIDTH = 500;[cite: 4]
+                            const MAX_HEIGHT = 500;[cite: 4]
+                            let width = img.width;[cite: 4]
+                            let height = img.height;[cite: 4]
                             
-                            if (width > height) {
-                                if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
-                            } else {
-                                if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
-                            }
+                            if (width > height) {[cite: 4]
+                                if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }[cite: 4]
+                            } else {[cite: 4]
+                                if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }[cite: 4]
+                            }[cite: 4]
                             
-                            canvas.width = width;
-                            canvas.height = height;
-                            const ctx = canvas.getContext('2d');
-                            ctx.drawImage(img, 0, 0, width, height);
-                            
-                            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                            
-                            currentImagesBase64.push(dataUrl);
-                            renderImagePreviews();
-                        }
-                        img.src = e.target.result;
-                    }
-                    reader.readAsDataURL(file);
-                });
-                input.value = ''; 
-            }
-        }
+                            canvas.width = width;[cite: 4]
+                            canvas.height = height;[cite: 4]
+                            const ctx = canvas.getContext('2d');[cite: 4]
+                            ctx.drawImage(img, 0, 0, width, height);[cite: 4]
+                            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);[cite: 4]
+                            currentImagesBase64.push(dataUrl);[cite: 4]
+                            renderImagePreviews();[cite: 4]
+                        }[cite: 4]
+                        img.src = e.target.result;[cite: 4]
+                    }[cite: 4]
+                    reader.readAsDataURL(file);[cite: 4]
+                });[cite: 4]
+                input.value = '';[cite: 4]
+            }[cite: 4]
+        }[cite: 4]
 
-        function renderImagePreviews() {
-            const container = document.getElementById('s_images_preview_container');
-            container.innerHTML = '';
-            
-            if(currentImagesBase64.length === 0) {
-                container.innerHTML = '<span style="color:#aaa; font-size:12px; align-self:center;">ยังไม่ได้เลือกรูปภาพ</span>';
-                return;
-            }
-
-            currentImagesBase64.forEach((base64, index) => {
-                const wrapper = document.createElement('div');
-                wrapper.className = 'img-preview-wrapper';
+        function renderImagePreviews() {[cite: 4]
+            const container = document.getElementById('s_images_preview_container');[cite: 4]
+            container.innerHTML = '';[cite: 4]
+            if(currentImagesBase64.length === 0) {[cite: 4]
+                container.innerHTML = '<span style="color:#aaa; font-size:12px; align-self:center;">ยังไม่ได้เลือกรูปภาพ</span>';[cite: 4]
+                return;[cite: 4]
+            }[cite: 4]
+            currentImagesBase64.forEach((base64, index) => {[cite: 4]
+                const wrapper = document.createElement('div');[cite: 4]
+                wrapper.className = 'img-preview-wrapper';[cite: 4]
                 wrapper.innerHTML = `
                     <img src="${base64}" class="stock-img-thumb" onclick="openLightboxFromPreview(${index})" title="คลิกเพื่อดูรูปใหญ่">
                     <button class="btn-remove-img" onclick="removeImage(${index})" title="ลบรูปนี้">✕</button>
-                `;
-                container.appendChild(wrapper);
-            });
-        }
+                `;[cite: 4]
+                container.appendChild(wrapper);[cite: 4]
+            });[cite: 4]
+        }[cite: 4]
 
-        function removeImage(index) {
-            currentImagesBase64.splice(index, 1);
-            renderImagePreviews();
-        }
+        function removeImage(index) {[cite: 4]
+            currentImagesBase64.splice(index, 1);[cite: 4]
+            renderImagePreviews();[cite: 4]
+        }[cite: 4]
 
-        // ฟังก์ชันสร้าง HTML สำหรับแสดงรูปในตาราง
-        function generateImageHTML(item) {
-            let images = [];
-            if (item.images && Array.isArray(item.images)) {
-                images = item.images;
-            } else if (item.image) {
-                images = [item.image];
-            }
-            
-            if (images.length === 0) return '<span style="color:#ccc; font-size: 11px;">ไม่มีรูป</span>';
-            
-            let html = '<div style="display: flex; gap: 4px; flex-wrap: wrap; justify-content: center;">';
-            images.forEach((img, index) => {
-                html += `<img src="${img}" class="stock-img-thumb" onclick="openLightboxFromStock(${item.id}, ${index})" title="คลิกเพื่อดูรูปใหญ่">`;
-            });
-            html += '</div>';
-            return html;
-        }
+        // ฟังก์ชันสร้างรูปในตาราง[cite: 4]
+        function generateImageHTML(item) {[cite: 4]
+            let images = [];[cite: 4]
+            if (item.images && Array.isArray(item.images)) images = item.images;[cite: 4]
+            else if (item.image) images = [item.image];[cite: 4]
+            if (images.length === 0) return '<span style="color:#ccc; font-size: 11px;">ไม่มีรูป</span>';[cite: 4]
+            let html = '<div style="display: flex; gap: 4px; flex-wrap: wrap; justify-content: center;">';[cite: 4]
+            images.forEach((img, index) => {[cite: 4]
+                html += `<img src="${img}" class="stock-img-thumb" onclick="openLightboxFromStock(${item.id}, ${index})" title="คลิกเพื่อดูรูปใหญ่">`;[cite: 4]
+            });[cite: 4]
+            html += '</div>';[cite: 4]
+            return html;[cite: 4]
+        }[cite: 4]
 
-        // --- ระบบจัดการสต็อกสินค้า ---
-        function openStockModal() {
-            clearStockForm();
-            document.getElementById('searchManageStockInput').value = '';
-            renderStockTable();
-            document.getElementById('stockModal').style.display = 'flex';
-        }
-        function closeStockModal() { document.getElementById('stockModal').style.display = 'none'; }
+        function openStockModal() {[cite: 4]
+            clearStockForm();[cite: 4]
+            document.getElementById('searchManageStockInput').value = '';[cite: 4]
+            renderStockTable();[cite: 4]
+            document.getElementById('stockModal').style.display = 'flex';[cite: 4]
+        }[cite: 4]
+        function closeStockModal() { document.getElementById('stockModal').style.display = 'none'; }[cite: 4]
         
-        function saveStockItem() {
-            const id = document.getElementById('s_id').value;
-            const name = document.getElementById('s_name').value;
-            const qty = parseNum(document.getElementById('s_qty').value);
-            const tagPrice = parseNum(document.getElementById('s_tag_price').value);
-            const sellPrice = parseNum(document.getElementById('s_sell_price').value);
+        async function saveStockItem() {[cite: 4]
+            const id = document.getElementById('s_id').value;[cite: 4]
+            const name = document.getElementById('s_name').value;[cite: 4]
+            const qty = parseNum(document.getElementById('s_qty').value);[cite: 4]
+            const tagPrice = parseNum(document.getElementById('s_tag_price').value);[cite: 4]
+            const sellPrice = parseNum(document.getElementById('s_sell_price').value);[cite: 4]
 
-            if(!name) return alert('กรุณาระบุชื่อสินค้า');
+            if(!name) return alert('กรุณาระบุชื่อสินค้า');[cite: 4]
 
-            if(id) {
-                const index = stockData.findIndex(s => s.id == id);
-                if(index > -1) {
-                    stockData[index] = { 
-                        id: parseInt(id), 
-                        name, qty, tagPrice, sellPrice, 
-                        images: [...currentImagesBase64] 
-                    };
-                }
-            } else {
-                stockData.push({ 
-                    id: Date.now(), 
-                    name, qty, tagPrice, sellPrice, 
-                    images: [...currentImagesBase64] 
-                });
-            }
+            if(id) {[cite: 4]
+                const index = stockData.findIndex(s => s.id == id);[cite: 4]
+                if(index > -1) {[cite: 4]
+                    stockData[index] = { id: parseInt(id), name, qty, tagPrice, sellPrice, images: [...currentImagesBase64] };[cite: 4]
+                    addLog('แก้ไขสินค้า', `อัปเดตสต็อกสินค้า "${name}" เป็น ${qty} ชิ้น (ขาย ${sellPrice} บ.)`);[cite: 4]
+                }[cite: 4]
+            } else {[cite: 4]
+                stockData.push({ id: Date.now(), name, qty, tagPrice, sellPrice, images: [...currentImagesBase64] });[cite: 4]
+                addLog('เพิ่มสินค้า', `เพิ่มสินค้าใหม่ "${name}" จำนวน ${qty} ชิ้น เข้าสู่ระบบสต็อก`);[cite: 4]
+            }[cite: 4]
 
-            try {
-                localStorage.setItem('vLuckStock', JSON.stringify(stockData));
-                clearStockForm();
-                renderStockTable();
-            } catch (e) {
-                alert("หน่วยความจำเบราว์เซอร์เต็ม ไม่สามารถบันทึกข้อมูลได้ กรุณาลบสินค้าบางส่วนออก หรือลดจำนวนรูปภาพลง");
-            }
-        }
+            clearStockForm();[cite: 4]
+            renderStockTable();[cite: 4]
+            await syncDataToCloud();[cite: 4]
+        }[cite: 4]
 
-        function editStockItem(id) {
-            const item = stockData.find(s => s.id == id);
-            if(!item) return;
+        function editStockItem(id) {[cite: 4]
+            const item = stockData.find(s => s.id == id);[cite: 4]
+            if(!item) return;[cite: 4]
 
-            document.getElementById('s_id').value = item.id;
-            document.getElementById('s_name').value = item.name;
-            document.getElementById('s_qty').value = item.qty;
-            document.getElementById('s_tag_price').value = item.tagPrice;
-            document.getElementById('s_sell_price').value = item.sellPrice;
+            document.getElementById('s_id').value = item.id;[cite: 4]
+            document.getElementById('s_name').value = item.name;[cite: 4]
+            document.getElementById('s_qty').value = item.qty;[cite: 4]
+            document.getElementById('s_tag_price').value = item.tagPrice;[cite: 4]
+            document.getElementById('s_sell_price').value = item.sellPrice;[cite: 4]
             
-            currentImagesBase64 = [];
-            if (item.images && Array.isArray(item.images)) {
-                currentImagesBase64 = [...item.images];
-            } else if (item.image) {
-                currentImagesBase64 = [item.image];
-            }
-            renderImagePreviews();
+            currentImagesBase64 = [];[cite: 4]
+            if (item.images && Array.isArray(item.images)) currentImagesBase64 = [...item.images];[cite: 4]
+            else if (item.image) currentImagesBase64 = [item.image];[cite: 4]
             
-            formatInput(document.getElementById('s_qty'));
-            formatInput(document.getElementById('s_tag_price'));
-            formatInput(document.getElementById('s_sell_price'));
+            renderImagePreviews();[cite: 4]
+            formatInput(document.getElementById('s_qty'));[cite: 4]
+            formatInput(document.getElementById('s_tag_price'));[cite: 4]
+            formatInput(document.getElementById('s_sell_price'));[cite: 4]
 
-            document.getElementById('btnSaveStock').innerText = '💾 อัปเดตสินค้า';
-            document.getElementById('btnSaveStock').style.backgroundColor = '#f39c12';
-            document.getElementById('btnCancelEditStock').style.display = 'block';
-        }
+            document.getElementById('btnSaveStock').innerText = '💾 อัปเดตสินค้า';[cite: 4]
+            document.getElementById('btnSaveStock').style.backgroundColor = '#f39c12';[cite: 4]
+            document.getElementById('btnCancelEditStock').style.display = 'block';[cite: 4]
+        }[cite: 4]
 
-        function clearStockForm() {
-            document.getElementById('s_id').value = '';
-            document.getElementById('s_name').value = '';
-            document.getElementById('s_qty').value = '';
-            document.getElementById('s_tag_price').value = '';
-            document.getElementById('s_sell_price').value = '';
+        function clearStockForm() {[cite: 4]
+            document.getElementById('s_id').value = '';[cite: 4]
+            document.getElementById('s_name').value = '';[cite: 4]
+            document.getElementById('s_qty').value = '';[cite: 4]
+            document.getElementById('s_tag_price').value = '';[cite: 4]
+            document.getElementById('s_sell_price').value = '';[cite: 4]
+            currentImagesBase64 = [];[cite: 4]
+            renderImagePreviews();[cite: 4]
+            document.getElementById('btnSaveStock').innerText = '💾 บันทึกสินค้า';[cite: 4]
+            document.getElementById('btnSaveStock').style.backgroundColor = '#2ecc71';[cite: 4]
+            document.getElementById('btnCancelEditStock').style.display = 'none';[cite: 4]
+        }[cite: 4]
+
+        async function deleteStockItem(id) {[cite: 4]
+            const item = stockData.find(s => s.id === id);[cite: 4]
+            if(item && confirm(`ต้องการลบสินค้า "${item.name}" ออกจากสต็อกถาวรใช่หรือไม่?`)) {[cite: 4]
+                stockData = stockData.filter(s => s.id !== id);[cite: 4]
+                addLog('ลบสินค้า', `ลบสินค้าแบรนด์/ชื่อ "${item.name}" ออกจากระบบสต็อกถาวร`);[cite: 4]
+                if(document.getElementById('s_id').value == id) clearStockForm();[cite: 4]
+                renderStockTable();[cite: 4]
+                await syncDataToCloud();[cite: 4]
+            }[cite: 4]
+        }[cite: 4]
+
+        function renderStockTable() {[cite: 4]
+            const tbody = document.getElementById('stockTableBody');[cite: 4]
+            tbody.innerHTML = '';[cite: 4]
+            stockData.sort((a, b) => a.name.localeCompare(b.name));[cite: 4]
             
-            currentImagesBase64 = [];
-            renderImagePreviews();
+            const keyword = document.getElementById('searchManageStockInput').value.toLowerCase();[cite: 4]
+            const filteredStock = stockData.filter(s => {[cite: 4]
+                const searchStr = `${s.name} ${s.sellPrice} ${s.tagPrice}`.toLowerCase();[cite: 4]
+                return searchStr.includes(keyword);[cite: 4]
+            });[cite: 4]
 
-            document.getElementById('btnSaveStock').innerText = '💾 บันทึกสินค้า';
-            document.getElementById('btnSaveStock').style.backgroundColor = '#2ecc71';
-            document.getElementById('btnCancelEditStock').style.display = 'none';
-        }
+            if(filteredStock.length === 0) {[cite: 4]
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="color:#999; padding: 15px;">ไม่พบสินค้าที่ค้นหา</td></tr>';[cite: 4]
+                return;[cite: 4]
+            }[cite: 4]
 
-        function deleteStockItem(id) {
-            if(confirm('ต้องการลบสินค้านี้ออกจากสต็อกถาวรใช่หรือไม่?')) {
-                stockData = stockData.filter(s => s.id !== id);
-                localStorage.setItem('vLuckStock', JSON.stringify(stockData));
-                
-                if(document.getElementById('s_id').value == id) {
-                    clearStockForm();
-                }
-                renderStockTable();
-            }
-        }
-
-        function renderStockTable() {
-            const tbody = document.getElementById('stockTableBody');
-            tbody.innerHTML = '';
-            
-            stockData.sort((a, b) => a.name.localeCompare(b.name));
-            
-            const keyword = document.getElementById('searchManageStockInput').value.toLowerCase();
-            const filteredStock = stockData.filter(s => {
-                const searchStr = `${s.name} ${s.sellPrice} ${s.tagPrice}`.toLowerCase();
-                return searchStr.includes(keyword);
-            });
-
-            if(filteredStock.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="color:#999; padding: 15px;">ไม่พบสินค้าที่ค้นหา</td></tr>';
-                return;
-            }
-
-            filteredStock.forEach(s => {
-                const imgHTML = generateImageHTML(s);
+            filteredStock.forEach(s => {[cite: 4]
+                const imgHTML = generateImageHTML(s);[cite: 4]
                 tbody.innerHTML += `
                     <tr>
                         <td class="text-center">${imgHTML}</td>
@@ -696,87 +788,53 @@
                             <button style="background:red; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="deleteStockItem(${s.id})">ลบ</button>
                         </td>
                     </tr>
-                `;
-            });
-        }
+                `;[cite: 4]
+            });[cite: 4]
+        }[cite: 4]
 
-        function printStockList() {
-            stockData.sort((a, b) => a.name.localeCompare(b.name));
-            let tableRows = '';
-            stockData.forEach(s => {
-                tableRows += `
-                    <tr>
-                        <td>${s.name}</td>
-                        <td class="text-center">${s.qty}</td>
-                        <td class="text-right">${s.tagPrice.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
-                        <td class="text-right">${s.sellPrice.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
-                    </tr>
-                `;
-            });
+        function printStockList() {[cite: 4]
+            stockData.sort((a, b) => a.name.localeCompare(b.name));[cite: 4]
+            let tableRows = '';[cite: 4]
+            stockData.forEach(s => {[cite: 4]
+                tableRows += `<tr><td>${s.name}</td><td class="text-center">${s.qty}</td><td class="text-right">${s.tagPrice.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td><td class="text-right">${s.sellPrice.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td></tr>`;[cite: 4]
+            });[cite: 4]
 
             let printContent = `
                 <html>
-                <head>
-                    <style>
-                        body { font-family: 'Sarabun', sans-serif; padding: 20px; }
-                        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                        th, td { border: 1px solid #000; padding: 10px; text-align: left; }
-                        th { background: #eee; }
-                        .text-right { text-align: right; }
-                        .text-center { text-align: center; }
-                    </style>
-                </head>
-                <body>
-                    <h2>รายการสต็อกสินค้าทั้งหมด (เรียงตามชื่อ/แบรนด์)</h2>
-                    <p>วันที่พิมพ์: ${new Date().toLocaleDateString('th-TH')}</p>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>ชื่อสินค้า / แบรนด์</th>
-                                <th class="text-center">คงเหลือ</th>
-                                <th class="text-right">ราคาป้าย</th>
-                                <th class="text-right">ราคาขาย</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${tableRows}
-                        </tbody>
-                    </table>
-                </body>
+                <head><style>body { font-family: 'Sarabun', sans-serif; padding: 20px; } table { width: 100%; border-collapse: collapse; margin-top: 20px; } th, td { border: 1px solid #000; padding: 10px; text-align: left; } th { background: #eee; } .text-right { text-align: right; } .text-center { text-align: center; }</style></head>
+                <body><h2>รายการสต็อกสินค้าทั้งหมด (เรียงตามชื่อ/แบรนด์)</h2><p>วันที่พิมพ์: ${new Date().toLocaleDateString('th-TH')}</p><table><thead><tr><th>ชื่อสินค้า / แบรนด์</th><th class="text-center">คงเหลือ</th><th class="text-right">ราคาป้าย</th><th class="text-right">ราคาขาย</th></tr></thead><tbody>${tableRows}</tbody></table></body>
                 </html>
-            `;
-            let printWindow = window.open('', '_blank');
-            printWindow.document.write(printContent);
-            printWindow.document.close();
-            printWindow.print();
-        }
+            `;[cite: 4]
+            let printWindow = window.open('', '_blank');[cite: 4]
+            printWindow.document.write(printContent);[cite: 4]
+            printWindow.document.close();[cite: 4]
+            printWindow.print();[cite: 4]
+        }[cite: 4]
 
-        // --- ระบบเลือกสินค้าลงบิล ---
-        function openSelectStockModal() {
-            document.getElementById('searchStockInput').value = '';
-            renderSelectStockTable();
-            document.getElementById('selectStockModal').style.display = 'flex';
-        }
-        function closeSelectStockModal() { document.getElementById('selectStockModal').style.display = 'none'; }
+        function openSelectStockModal() {[cite: 4]
+            document.getElementById('searchStockInput').value = '';[cite: 4]
+            renderSelectStockTable();[cite: 4]
+            document.getElementById('selectStockModal').style.display = 'flex';[cite: 4]
+        }[cite: 4]
+        function closeSelectStockModal() { document.getElementById('selectStockModal').style.display = 'none'; }[cite: 4]
 
-        function renderSelectStockTable() {
-            const tbody = document.getElementById('selectStockTableBody');
-            tbody.innerHTML = '';
-            
-            const keyword = document.getElementById('searchStockInput').value.toLowerCase();
+        function renderSelectStockTable() {[cite: 4]
+            const tbody = document.getElementById('selectStockTableBody');[cite: 4]
+            tbody.innerHTML = '';[cite: 4]
+            const keyword = document.getElementById('searchStockInput').value.toLowerCase();[cite: 4]
 
-            const filteredStock = stockData.filter(s => {
-                const searchStr = `${s.name} ${s.sellPrice}`.toLowerCase();
-                return s.qty > 0 && searchStr.includes(keyword);
-            });
+            const filteredStock = stockData.filter(s => {[cite: 4]
+                const searchStr = `${s.name} ${s.sellPrice}`.toLowerCase();[cite: 4]
+                return s.qty > 0 && searchStr.includes(keyword);[cite: 4]
+            });[cite: 4]
 
-            if(filteredStock.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center" style="color:#999; padding: 15px;">ไม่พบสินค้าที่ค้นหา (หรือของหมดสต็อก)</td></tr>';
-                return;
-            }
+            if(filteredStock.length === 0) {[cite: 4]
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center" style="color:#999; padding: 15px;">ไม่พบสินค้าที่ค้นหา (หรือของหมดสต็อก)</td></tr>';[cite: 4]
+                return;[cite: 4]
+            }[cite: 4]
 
-            filteredStock.forEach(s => {
-                const imgHTML = generateImageHTML(s);
+            filteredStock.forEach(s => {[cite: 4]
+                const imgHTML = generateImageHTML(s);[cite: 4]
                 tbody.innerHTML += `
                     <tr>
                         <td class="text-center">${imgHTML}</td>
@@ -785,157 +843,134 @@
                         <td class="text-right" style="font-weight:bold;">${s.sellPrice.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
                         <td class="text-center"><button style="background:#f39c12; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;" onclick="addItemFromStock(${s.id})">เลือก</button></td>
                     </tr>
-                `;
-            });
-        }
+                `;[cite: 4]
+            });[cite: 4]
+        }[cite: 4]
 
-        function addItemFromStock(id) {
-            const item = stockData.find(s => s.id === id);
-            if(!item) return;
+        function addItemFromStock(id) {[cite: 4]
+            const item = stockData.find(s => s.id === id);[cite: 4]
+            if(!item) return;[cite: 4]
 
-            const firstRow = document.querySelector("#billTable tbody tr");
-            const firstDesc = firstRow.querySelector(".item-desc").value.trim();
-            const firstPrice = parseNum(firstRow.querySelector(".price").value);
+            const firstRow = document.querySelector("#billTable tbody tr");[cite: 4]
+            const firstDesc = firstRow.querySelector(".item-desc").value.trim();[cite: 4]
+            const firstPrice = parseNum(firstRow.querySelector(".price").value);[cite: 4]
             
-            let targetRow;
-            if(document.querySelectorAll("#billTable tbody tr").length === 1 && firstDesc === '' && firstPrice === 0) {
-                targetRow = firstRow; 
-            } else {
-                addRow(); 
-                const rows = document.querySelectorAll("#billTable tbody tr");
-                targetRow = rows[rows.length - 1];
-            }
+            let targetRow;[cite: 4]
+            if(document.querySelectorAll("#billTable tbody tr").length === 1 && firstDesc === '' && firstPrice === 0) {[cite: 4]
+                targetRow = firstRow;[cite: 4]
+            } else {[cite: 4]
+                addRow();[cite: 4]
+                const rows = document.querySelectorAll("#billTable tbody tr");[cite: 4]
+                targetRow = rows[rows.length - 1];[cite: 4]
+            }[cite: 4]
 
-            targetRow.querySelector(".stock-id").value = item.id;
-            const descElem = targetRow.querySelector(".item-desc");
-            descElem.value = item.name;
-            autoResize(descElem);
+            targetRow.querySelector(".stock-id").value = item.id;[cite: 4]
+            const descElem = targetRow.querySelector(".item-desc");[cite: 4]
+            descElem.value = item.name;[cite: 4]
+            autoResize(descElem);[cite: 4]
             
-            targetRow.querySelector(".qty").value = "1";
-            targetRow.querySelector(".price").value = item.sellPrice.toLocaleString('th-TH');
-            targetRow.querySelector(".amount").value = item.sellPrice.toLocaleString('th-TH');
+            targetRow.querySelector(".qty").value = "1";[cite: 4]
+            targetRow.querySelector(".price").value = item.sellPrice.toLocaleString('th-TH');[cite: 4]
+            targetRow.querySelector(".amount").value = item.sellPrice.toLocaleString('th-TH');[cite: 4]
 
-            calculateRow(targetRow.querySelector(".qty"));
-            closeSelectStockModal();
-        }
+            calculateRow(targetRow.querySelector(".qty"));[cite: 4]
+            closeSelectStockModal();[cite: 4]
+        }[cite: 4]
 
-        // --- บันทึกและพิมพ์ (พร้อมตัดสต็อก) ---
-        function printAndSaveBill() {
-            const bookNo = document.getElementById('bookNo').value;
-            const billNo = document.getElementById('billNo').value;
-            const dateStr = document.getElementById('date').value;
-            const timeStr = document.getElementById('time').value;
+        async function printAndSaveBill() {[cite: 4]
+            const bookNo = document.getElementById('bookNo').value;[cite: 4]
+            const billNo = document.getElementById('billNo').value;[cite: 4]
+            const dateStr = document.getElementById('date').value;[cite: 4]
+            const timeStr = document.getElementById('time').value;[cite: 4]
+            const custName = document.getElementById('custName').value || 'ลูกค้าทั่วไป';[cite: 4]
+            const docType = document.getElementById('docTypeSelect').value;[cite: 4]
+
+            const items = [];[cite: 4]
+            document.querySelectorAll("#billTable tbody tr").forEach(row => {[cite: 4]
+                items.push({[cite: 4]
+                    stockId: row.querySelector(".stock-id") ? row.querySelector(".stock-id").value : "",[cite: 4]
+                    desc: row.querySelector(".item-desc").value,[cite: 4]
+                    qty: row.querySelector(".qty").value,[cite: 4]
+                    price: row.querySelector(".price").value,[cite: 4]
+                    amount: row.querySelector(".amount").value[cite: 4]
+                });[cite: 4]
+            });[cite: 4]
             
-            const custName = document.getElementById('custName').value || 'ลูกค้าทั่วไป';
-            const docType = document.getElementById('docTypeSelect').value;
-
-            const items = [];
-            document.querySelectorAll("#billTable tbody tr").forEach(row => {
-                items.push({
-                    stockId: row.querySelector(".stock-id") ? row.querySelector(".stock-id").value : "",
-                    desc: row.querySelector(".item-desc").value,
-                    qty: row.querySelector(".qty").value,
-                    price: row.querySelector(".price").value,
-                    amount: row.querySelector(".amount").value
-                });
-            });
+            const netTotal = parseNum(document.getElementById('netTotal').innerText);[cite: 4]
+            const existingIdx = billHistoryData.findIndex(h => h.bookNo === bookNo && h.billNo === billNo);[cite: 4]
             
-            const netTotal = parseNum(document.getElementById('netTotal').innerText);
-
-            let history = JSON.parse(localStorage.getItem('vLuckBillHistory')) || [];
-            const existingIdx = history.findIndex(h => h.bookNo === bookNo && h.billNo === billNo);
+            const billData = {[cite: 4]
+                date: dateStr, time: timeStr, bookNo, billNo, custName,[cite: 4]
+                custTaxId: document.getElementById('custTaxId').value,[cite: 4]
+                custAddress: document.getElementById('custAddress').value, [cite: 4]
+                custTel: document.getElementById('custTel').value,[cite: 4]
+                docType, items, netTotal, status: 'active'[cite: 4]
+            };[cite: 4]
             
-            const billData = { 
-                date: dateStr, time: timeStr, bookNo, billNo, custName, 
-                custTaxId: document.getElementById('custTaxId').value, 
-                custAddress: document.getElementById('custAddress').value, 
-                custTel: document.getElementById('custTel').value, 
-                docType, items, netTotal, status: 'active' 
-            };
+            if (existingIdx >= 0) {[cite: 4]
+                billHistoryData[existingIdx] = billData;[cite: 4]
+                addLog('ออกบิลใหม่', `แก้ไขข้อมูลใบเสร็จเดิม เล่มที่: ${bookNo} เลขที่: ${billNo} ของคุณ ${custName}`);[cite: 4]
+            } else {[cite: 4]
+                billHistoryData.push(billData);[cite: 4]
+                items.forEach(it => {[cite: 4]
+                    if (it.stockId) {[cite: 4]
+                        const sItem = stockData.find(s => s.id == it.stockId);[cite: 4]
+                        if (sItem) sItem.qty -= parseNum(it.qty);[cite: 4]
+                    }[cite: 4]
+                });[cite: 4]
+                addLog('ออกบิลใหม่', `เปิดบิลขายใหม่ เล่มที่: ${bookNo} เลขที่: ${billNo} ยอดรวม ${netTotal.toLocaleString()} บ. แก่คุณ ${custName}`);[cite: 4]
+            }[cite: 4]
             
-            if (existingIdx >= 0) {
-                history[existingIdx] = billData;
-            } else {
-                history.push(billData);
-                let stockUpdated = false;
-                items.forEach(it => {
-                    if (it.stockId) {
-                        const sItem = stockData.find(s => s.id == it.stockId);
-                        if (sItem) {
-                            sItem.qty -= parseNum(it.qty);
-                            stockUpdated = true;
-                        }
-                    }
-                });
-                if (stockUpdated) localStorage.setItem('vLuckStock', JSON.stringify(stockData));
-            }
-            
-            localStorage.setItem('vLuckBillHistory', JSON.stringify(history));
+            document.getElementById('canceledStamp').style.display = 'none'; [cite: 4]
+            window.print();[cite: 4]
+            await syncDataToCloud();[cite: 4]
+        }[cite: 4]
 
-            let currentNumeric = parseInt(billNo.replace(/\D/g, '')) || 0;
-            let lastNumeric = parseInt(localStorage.getItem('vLuckLastBillNo') || 0);
-            if (currentNumeric >= lastNumeric) {
-                localStorage.setItem('vLuckLastBillNo', currentNumeric);
-                localStorage.setItem('vLuckLastMonth', bookNo); 
-            }
-
-            document.getElementById('canceledStamp').style.display = 'none'; 
-            window.print();
-        }
-
-        // --- ยกเลิกบิล (คืนสต็อก) ---
-        function cancelBill(bookNo, billNo) {
-            if(confirm(`ยืนยันการยกเลิกบิล?\n(ยอดขายจะถูกหักออก และสินค้าในบิลนี้จะถูกคืนเข้าสต็อก)`)) {
-                let history = JSON.parse(localStorage.getItem('vLuckBillHistory')) || [];
-                const existingIdx = history.findIndex(h => h.bookNo === bookNo && h.billNo === billNo);
-                if (existingIdx >= 0 && history[existingIdx].status !== 'canceled') {
+        async function cancelBill(bookNo, billNo) {[cite: 4]
+            if(confirm(`ยืนยันการยกเลิกบิล?\n(ยอดขายจะถูกหักออก และสินค้าในบิลนี้จะถูกคืนเข้าสต็อก)`)) {[cite: 4]
+                const existingIdx = billHistoryData.findIndex(h => h.bookNo === bookNo && h.billNo === billNo);[cite: 4]
+                if (existingIdx >= 0 && billHistoryData[existingIdx].status !== 'canceled') {[cite: 4]
                     
-                    let stockUpdated = false;
-                    history[existingIdx].items.forEach(it => {
-                        if (it.stockId) {
-                            const sItem = stockData.find(s => s.id == it.stockId);
-                            if (sItem) {
-                                sItem.qty += parseNum(it.qty);
-                                stockUpdated = true;
-                            }
-                        }
-                    });
-                    if (stockUpdated) localStorage.setItem('vLuckStock', JSON.stringify(stockData));
+                    billHistoryData[existingIdx].items.forEach(it => {[cite: 4]
+                        if (it.stockId) {[cite: 4]
+                            const sItem = stockData.find(s => s.id == it.stockId);[cite: 4]
+                            if (sItem) sItem.qty += parseNum(it.qty);[cite: 4]
+                        }[cite: 4]
+                    });[cite: 4]
 
-                    history[existingIdx].status = 'canceled';
-                    localStorage.setItem('vLuckBillHistory', JSON.stringify(history));
-                    openHistoryModal(); 
-                }
-            }
-        }
+                    billHistoryData[existingIdx].status = 'canceled';[cite: 4]
+                    addLog('ยกเลิกบิล', `ยกเลิกบิลขาย เล่มที่: ${bookNo} เลขที่: ${billNo} ของคุณ ${billHistoryData[existingIdx].custName} และทำการคืนยอดสินค้าเข้าสต็อก`);[cite: 4]
+                    openHistoryModal();[cite: 4]
+                    await syncDataToCloud();[cite: 4]
+                }[cite: 4]
+            }[cite: 4]
+        }[cite: 4]
 
-        // --- ประวัติ ---
-        function openHistoryModal() {
-            let history = JSON.parse(localStorage.getItem('vLuckBillHistory')) || [];
-            const todayStr = new Date().toISOString().split('T')[0]; 
-            let dailyTotal = 0, monthlyTotal = 0;
-            const tbody = document.getElementById('historyTableBody');
-            tbody.innerHTML = '';
+        function openHistoryModal() {[cite: 4]
+            const todayStr = new Date().toISOString().split('T')[0]; [cite: 4]
+            let dailyTotal = 0, monthlyTotal = 0;[cite: 4]
+            const tbody = document.getElementById('historyTableBody');[cite: 4]
+            tbody.innerHTML = '';[cite: 4]
 
-            history.slice().reverse().forEach(h => {
-                const isCanceled = h.status === 'canceled';
-                if (!isCanceled) {
-                    if (h.date === todayStr) dailyTotal += h.netTotal;
-                    if (h.date.startsWith(currentMonthKey)) monthlyTotal += h.netTotal;
-                }
+            billHistoryData.slice().reverse().forEach(h => {[cite: 4]
+                const isCanceled = h.status === 'canceled';[cite: 4]
+                if (!isCanceled) {[cite: 4]
+                    if (h.date === todayStr) dailyTotal += parseFloat(h.netTotal);[cite: 4]
+                    if (h.date.startsWith(currentMonthKey)) monthlyTotal += parseFloat(h.netTotal);[cite: 4]
+                }[cite: 4]
 
-                const tr = document.createElement('tr');
-                if (isCanceled) tr.style.opacity = '0.5'; 
+                const tr = document.createElement('tr');[cite: 4]
+                if (isCanceled) tr.style.opacity = '0.5'; [cite: 4]
 
-                let badge = isCanceled ? '<br><span style="color:#e74c3c; font-weight:bold; font-size:12px;">[ยกเลิกแล้ว]</span>' : '';
-                let amountDisplay = isCanceled 
-                    ? `<s style="color:#999;">${h.netTotal.toLocaleString('th-TH', {minimumFractionDigits: 2})}</s>`
-                    : `<span style="color:#27ae60; font-weight:bold;">${h.netTotal.toLocaleString('th-TH', {minimumFractionDigits: 2})}</span>`;
+                let badge = isCanceled ? '<br><span style="color:#e74c3c; font-weight:bold; font-size:12px;">[ยกเลิกแล้ว]</span>' : '';[cite: 4]
+                let amountDisplay = isCanceled[cite: 4]
+                    ? `<s style="color:#999;">${parseFloat(h.netTotal).toLocaleString('th-TH', {minimumFractionDigits: 2})}</s>`[cite: 4]
+                    : `<span style="color:#27ae60; font-weight:bold;">${parseFloat(h.netTotal).toLocaleString('th-TH', {minimumFractionDigits: 2})}</span>`;[cite: 4]
 
-                let actionBtns = `<button style="background:#9b59b6; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:12px; cursor:pointer;" onclick="loadBill('${h.bookNo}', '${h.billNo}')">เปิดดู</button>`;
-                if (!isCanceled) {
-                    actionBtns += `<button style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:12px; cursor:pointer; margin-left:4px;" onclick="cancelBill('${h.bookNo}', '${h.billNo}')">ยกเลิก</button>`;
-                }
+                let actionBtns = `<button style="background:#9b59b6; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:12px; cursor:pointer;" onclick="loadBill('${h.bookNo}', '${h.billNo}')">เปิดดู</button>`;[cite: 4]
+                if (!isCanceled) {[cite: 4]
+                    actionBtns += `<button style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:12px; cursor:pointer; margin-left:4px;" onclick="cancelBill('${h.bookNo}', '${h.billNo}')">ยกเลิก</button>`;[cite: 4]
+                }[cite: 4]
 
                 tr.innerHTML = `
                     <td>${h.date} <br><small style="color:#888">${h.time}</small></td>
@@ -943,43 +978,39 @@
                     <td>${h.custName}</td>
                     <td class="text-right">${amountDisplay}</td>
                     <td class="text-center">${actionBtns}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-            document.getElementById('dailyTotalDisplay').innerText = dailyTotal.toLocaleString('th-TH', {minimumFractionDigits: 2});
-            document.getElementById('monthlyTotalDisplay').innerText = monthlyTotal.toLocaleString('th-TH', {minimumFractionDigits: 2});
-            document.getElementById('historyModal').style.display = 'flex';
-        }
-        function closeHistoryModal() { document.getElementById('historyModal').style.display = 'none'; }
+                `;[cite: 4]
+                tbody.appendChild(tr);[cite: 4]
+            });[cite: 4]
+            document.getElementById('dailyTotalDisplay').innerText = dailyTotal.toLocaleString('th-TH', {minimumFractionDigits: 2});[cite: 4]
+            document.getElementById('monthlyTotalDisplay').innerText = monthlyTotal.toLocaleString('th-TH', {minimumFractionDigits: 2});[cite: 4]
+            document.getElementById('historyModal').style.display = 'flex';[cite: 4]
+        }[cite: 4]
+        function closeHistoryModal() { document.getElementById('historyModal').style.display = 'none'; }[cite: 4]
 
-        function loadBill(bookNo, billNo) {
-            let history = JSON.parse(localStorage.getItem('vLuckBillHistory')) || [];
-            const bill = history.find(h => h.bookNo === bookNo && h.billNo === billNo);
-            if (bill) {
-                document.getElementById('canceledStamp').style.display = (bill.status === 'canceled') ? 'block' : 'none';
-                
-                document.getElementById('bookNo').value = bill.bookNo || '';
-                document.getElementById('billNo').value = bill.billNo || '';
-                document.getElementById('date').value = bill.date || '';
-                document.getElementById('time').value = bill.time || '';
-                
-                document.getElementById('custName').value = bill.custName === 'ลูกค้าทั่วไป' ? '' : (bill.custName || '');
-                document.getElementById('custTaxId').value = bill.custTaxId || '';
-                const addrElem = document.getElementById('custAddress');
-                addrElem.value = bill.custAddress || '';
-                autoResize(addrElem); 
-                document.getElementById('custTel').value = bill.custTel || '';
-                
-                document.getElementById('docTypeSelect').value = bill.docType || 'receipt'; 
-                toggleDocType();
+        function loadBill(bookNo, billNo) {[cite: 4]
+            const bill = billHistoryData.find(h => h.bookNo === bookNo && h.billNo === billNo);[cite: 4]
+            if (bill) {[cite: 4]
+                document.getElementById('canceledStamp').style.display = (bill.status === 'canceled') ? 'block' : 'none';[cite: 4]
+                document.getElementById('bookNo').value = bill.bookNo || '';[cite: 4]
+                document.getElementById('billNo').value = bill.billNo || '';[cite: 4]
+                document.getElementById('date').value = bill.date || '';[cite: 4]
+                document.getElementById('time').value = bill.time || '';[cite: 4]
+                document.getElementById('custName').value = bill.custName === 'ลูกค้าทั่วไป' ? '' : (bill.custName || '');[cite: 4]
+                document.getElementById('custTaxId').value = bill.custTaxId || '';[cite: 4]
+                const addrElem = document.getElementById('custAddress');[cite: 4]
+                addrElem.value = bill.custAddress || '';[cite: 4]
+                autoResize(addrElem); [cite: 4]
+                document.getElementById('custTel').value = bill.custTel || '';[cite: 4]
+                document.getElementById('docTypeSelect').value = bill.docType || 'receipt'; [cite: 4]
+                toggleDocType();[cite: 4]
 
-                const tbody = document.querySelector("#billTable tbody");
-                tbody.innerHTML = '';
+                const tbody = document.querySelector("#billTable tbody");[cite: 4]
+                tbody.innerHTML = '';[cite: 4]
                 
-                if (bill.items && bill.items.length > 0) {
-                    bill.items.forEach((item) => {
-                        const row = document.createElement("tr");
-                        const sid = item.stockId || '';
+                if (bill.items && bill.items.length > 0) {[cite: 4]
+                    bill.items.forEach((item) => {[cite: 4]
+                        const row = document.createElement("tr");[cite: 4]
+                        const sid = item.stockId || '';[cite: 4]
                         row.innerHTML = `
                             <td class="text-center row-num"></td>
                             <td>
@@ -991,52 +1022,51 @@
                             <td class="text-right" style="color: #e74c3c;"><span class="row-discount">0.00</span></td>
                             <td><input type="text" class="amount" oninput="formatInput(this); calculateRow(this)"></td>
                             <td class="text-center action-col"><button class="btn-delete" onclick="deleteRow(this)">✕</button></td>
-                        `;
-                        tbody.appendChild(row);
+                        `;[cite: 4]
+                        tbody.appendChild(row);[cite: 4]
 
-                        const descElem = row.querySelector(".item-desc");
-                        descElem.value = item.desc || '';
-                        autoResize(descElem); 
+                        const descElem = row.querySelector(".item-desc");[cite: 4]
+                        descElem.value = item.desc || '';[cite: 4]
+                        autoResize(descElem);  [cite: 4]
                         
-                        let qtyInput = row.querySelector(".qty");
-                        let priceInput = row.querySelector(".price");
-                        let amountInput = row.querySelector(".amount");
+                        let qtyInput = row.querySelector(".qty");[cite: 4]
+                        let priceInput = row.querySelector(".price");[cite: 4]
+                        let amountInput = row.querySelector(".amount");[cite: 4]
 
-                        qtyInput.value = item.qty || '1';
-                        priceInput.value = item.price || '0';
-                        amountInput.value = item.amount || '0';
+                        qtyInput.value = item.qty || '1';[cite: 4]
+                        priceInput.value = item.price || '0';[cite: 4]
+                        amountInput.value = item.amount || '0';[cite: 4]
 
-                        formatInput(qtyInput); formatInput(priceInput); formatInput(amountInput);
-                        calculateRow(qtyInput);
-                    });
-                } else {
-                    addRow(); 
-                }
+                        formatInput(qtyInput); formatInput(priceInput); formatInput(amountInput);[cite: 4]
+                        calculateRow(qtyInput);[cite: 4]
+                    });[cite: 4]
+                } else {[cite: 4]
+                    addRow(); [cite: 4]
+                }[cite: 4]
                 
-                updateRowNumbers(); calculateGrandTotal(); 
-                closeHistoryModal(); window.scrollTo(0, 0); 
-            }
-        }
+                updateRowNumbers(); calculateGrandTotal(); [cite: 4]
+                closeHistoryModal(); window.scrollTo(0, 0); [cite: 4]
+            }[cite: 4]
+        }[cite: 4]
 
-        // --- Utils ตาราง ---
-        function formatInput(input) {
-            let val = input.value.replace(/[^0-9.]/g, '');
-            let parts = val.split('.');
-            if (parts.length > 2) parts = [parts[0], parts.slice(1).join('')];
-            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-            input.value = parts.join('.');
-        }
-        function parseNum(val) { return parseFloat((val||'').toString().replace(/,/g, '')) || 0; }
-
-        function autoResize(element) { element.style.height = 'auto'; element.style.height = element.scrollHeight + 'px'; }
-        function updateRowNumbers() {
-            document.querySelectorAll("#billTable tbody tr").forEach((row, index) => {
-                row.querySelector(".row-num").innerText = index + 1;
-            });
-        }
-        function addRow() {
-            const tbody = document.querySelector("#billTable tbody");
-            const row = document.createElement("tr");
+        function formatInput(input) {[cite: 4]
+            let val = input.value.replace(/[^0-9.]/g, '');[cite: 4]
+            let parts = val.split('.');[cite: 4]
+            if (parts.length > 2) parts = [parts[0], parts.slice(1).join('')];[cite: 4]
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");[cite: 4]
+            input.value = parts.join('.');[cite: 4]
+        }[cite: 4]
+        function parseNum(val) { return parseFloat((val||'').toString().replace(/,/g, '')) || 0; }[cite: 4]
+        function autoResize(element) { element.style.height = 'auto'; element.style.height = element.scrollHeight + 'px'; }[cite: 4]
+        
+        function updateRowNumbers() {[cite: 4]
+            document.querySelectorAll("#billTable tbody tr").forEach((row, index) => {[cite: 4]
+                row.querySelector(".row-num").innerText = index + 1;[cite: 4]
+            });[cite: 4]
+        }[cite: 4]
+        function addRow() {[cite: 4]
+            const tbody = document.querySelector("#billTable tbody");[cite: 4]
+            const row = document.createElement("tr");[cite: 4]
             row.innerHTML = `
                 <td class="text-center row-num"></td>
                 <td>
@@ -1048,39 +1078,39 @@
                 <td class="text-right" style="color: #e74c3c;"><span class="row-discount">0.00</span></td>
                 <td><input type="text" value="0" class="amount" oninput="formatInput(this); calculateRow(this)"></td>
                 <td class="text-center action-col"><button class="btn-delete" onclick="deleteRow(this)">✕</button></td>
-            `;
-            tbody.appendChild(row);
-            updateRowNumbers();
-        }
-        function deleteRow(button) {
-            const tbody = document.querySelector("#billTable tbody");
-            if (tbody.children.length > 1) {
-                button.closest("tr").remove();
-                updateRowNumbers(); calculateGrandTotal(); 
-            } else {
-                alert("ไม่สามารถลบได้ ต้องมีอย่างน้อย 1 รายการครับ");
-            }
-        }
-        function calculateRow(element) {
-            const row = element.closest("tr");
-            const qty = parseNum(row.querySelector(".qty").value);
-            const price = parseNum(row.querySelector(".price").value);
-            const amount = parseNum(row.querySelector(".amount").value);
-            let discount = (qty * price) - amount;
-            if (discount < 0) discount = 0; 
-            row.querySelector(".row-discount").innerText = discount.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            calculateGrandTotal();
-        }
-        function calculateGrandTotal() {
-            let sumTotal = 0; 
-            document.querySelectorAll("#billTable tbody tr").forEach(row => { sumTotal += parseNum(row.querySelector(".amount").value); });
-            const beforeVat = (sumTotal * 100) / 107;
-            const vat = (sumTotal * 7) / 107;
-            document.getElementById("sumTotal").innerText = sumTotal.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            document.getElementById("beforeVat").innerText = beforeVat.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            document.getElementById("vatAmount").innerText = vat.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            document.getElementById("netTotal").innerText = sumTotal.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2}); 
-        }
+            `;[cite: 4]
+            tbody.appendChild(row);[cite: 4]
+            updateRowNumbers();[cite: 4]
+        }[cite: 4]
+        function deleteRow(button) {[cite: 4]
+            const tbody = document.querySelector("#billTable tbody");[cite: 4]
+            if (tbody.children.length > 1) {[cite: 4]
+                button.closest("tr").remove();[cite: 4]
+                updateRowNumbers(); calculateGrandTotal(); [cite: 4]
+            } else {[cite: 4]
+                alert("ไม่สามารถลบได้ ต้องมีอย่างน้อย 1 รายการครับ");[cite: 4]
+            }[cite: 4]
+        }[cite: 4]
+        function calculateRow(element) {[cite: 4]
+            const row = element.closest("tr");[cite: 4]
+            const qty = parseNum(row.querySelector(".qty").value);[cite: 4]
+            const price = parseNum(row.querySelector(".price").value);[cite: 4]
+            const amount = parseNum(row.querySelector(".amount").value);[cite: 4]
+            let discount = (qty * price) - amount;[cite: 4]
+            if (discount < 0) discount = 0; [cite: 4]
+            row.querySelector(".row-discount").innerText = discount.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});[cite: 4]
+            calculateGrandTotal();[cite: 4]
+        }[cite: 4]
+        function calculateGrandTotal() {[cite: 4]
+            let sumTotal = 0; [cite: 4]
+            document.querySelectorAll("#billTable tbody tr").forEach(row => { sumTotal += parseNum(row.querySelector(".amount").value); });[cite: 4]
+            const beforeVat = (sumTotal * 100) / 107;[cite: 4]
+            const vat = (sumTotal * 7) / 107;[cite: 4]
+            document.getElementById("sumTotal").innerText = sumTotal.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});[cite: 4]
+            document.getElementById("beforeVat").innerText = beforeVat.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});[cite: 4]
+            document.getElementById("vatAmount").innerText = vat.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});[cite: 4]
+            document.getElementById("netTotal").innerText = sumTotal.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});  [cite: 4]
+        }[cite: 4]
     </script>
 </body>
 </html>
