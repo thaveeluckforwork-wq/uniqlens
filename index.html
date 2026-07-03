@@ -334,15 +334,20 @@
     </div>
 
     <script>
-        // 🔗 ผูก URL ระบบ Web App ของคุณสำหรับการดึง-ส่งข้อมูลออนไลน์[cite: 3]
-        const BACKEND_API_URL = "https://script.google.com/macros/s/AKfycbzfM4vfTbJCqDIGltFk0q-WNwHK8y2FSMPtZXhFs6VWLGTqa3UjSF_2heYWdpbfa4WWhQ/exec";[cite: 3]
+        // ⚙️ ตั้งค่าการเชื่อมต่อฐานข้อมูลคลาวด์บน GitHub (กรอกข้อมูลของคุณให้ถูกต้อง)
+        const GITHUB_USER = "thaveeluckforwork-wq"; // ชื่อผู้ใช้ GitHub ของคุณ
+        const GITHUB_REPO = "uniqlens";              // ชื่อคลังเก็บไฟล์ของคุณ
+        const GITHUB_TOKEN = "💡 เอารหัสกุญแจ Token ที่ได้จากขั้นตอนที่ 1 มาวางตรงนี้"; 
+        
+        const DATA_FILE_PATH = "database.json";      // ชื่อไฟล์ที่จะใช้เก็บข้อมูลออนไลน์
 
         // --- ตัวแปรหลักของแอป ---[cite: 3]
         let stockData = [];[cite: 3]
         let billHistoryData = [];[cite: 3]
-        let currentImagesBase64 = [];[cite: 3]
+        let currentImagesBase64 = []; [cite: 3]
         let currentLightboxImages = [];[cite: 3]
         let currentLightboxIndex = 0;[cite: 3]
+        let currentFileSha = ""; // ใช้สำหรับบันทึกเวอร์ชันไฟล์บน GitHub
         
         function getMonthKey() {[cite: 3]
             const now = new Date();[cite: 3]
@@ -352,74 +357,109 @@
         }[cite: 3]
         const currentMonthKey = getMonthKey();[cite: 3]
 
-        // ฟังก์ชันดึงข้อมูลเรียลไทม์ผ่าน fetch แบบปลอดภัย ป้องกันเบราว์เซอร์เครื่องอื่นบล็อกระบบ (CORS)[cite: 3]
-        function loadOnlineData() {[cite: 3]
-            console.log("กำลังเชื่อมต่อระบบฐานข้อมูล Google Sheets...");[cite: 3]
+        // ฟังก์ชันดึงข้อมูลเรียลไทม์ออนไลน์จากไฟล์บน GitHub
+        async function loadOnlineData() {
+            console.log("กำลังเชื่อมต่อคลังข้อมูลออนไลน์บน GitHub...");
+            const url = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${DATA_FILE_PATH}`;
             
-            fetch(`${BACKEND_API_URL}?action=readAll`, {[cite: 3]
-                method: "GET",[cite: 3]
-                headers: { "Accept": "application/json" }[cite: 3]
-            })[cite: 3]
-            .then(response => response.json())[cite: 3]
-            .then(cloudData => {[cite: 3]
-                if (cloudData) {[cite: 3]
-                    stockData = cloudData.stock || [];[cite: 3]
-                    billHistoryData = cloudData.history || [];[cite: 3]
-                    console.log("ซิงค์ฐานข้อมูลออนไลน์สำเร็จ!");[cite: 3]
-                } else {[cite: 3]
-                    loadFallbackData();[cite: 3]
-                }[cite: 3]
-                setDateTimeNow();[cite: 3]
-                loadNextBillNumber();[cite: 3]
-                toggleDocType();[cite: 3]
-            })[cite: 3]
-            .catch(error => {[cite: 3]
-                console.error("เชื่อมต่อคลาวด์ล้มเหลว ใช้ฐานข้อมูลสำรอง:", error);[cite: 3]
-                loadFallbackData();[cite: 3]
-            });[cite: 3]
-        }[cite: 3]
+            try {
+                const response = await fetch(url, {
+                    method: "GET",
+                    headers: {
+                        "Authorization": `token ${GITHUB_TOKEN}`,
+                        "Accept": "application/vnd.github.v3+json"
+                    }
+                });
+
+                if (response.status === 200) {
+                    const fileData = await response.json();
+                    currentFileSha = fileData.sha; // เก็บค่าเวอร์ชันไฟล์ไว้ใช้อัปเดต
+                    
+                    // ถอดรหัสข้อความ Base64 จาก GitHub ออกมาเป็น JSON
+                    const decodedContent = decodeURIComponent(atob(fileData.content).split('').map(function(c) {
+                        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                    }).join(''));
+                    
+                    const database = JSON.parse(decodedContent);
+                    stockData = database.stock || [];
+                    billHistoryData = database.history || [];
+                    console.log("ซิงค์ฐานข้อมูลออนไลน์จาก GitHub สำเร็จ!");
+                } else if (response.status === 404) {
+                    console.log("ไม่พบไฟล์ฐานข้อมูลเก่า ระบบจะสร้างไฟล์ใหม่ให้ตอนบันทึกครั้งแรก");
+                    loadFallbackData();
+                } else {
+                    loadFallbackData();
+                }
+            } catch (error) {
+                console.error("การเชื่อมต่อขัดข้อง ดึงข้อมูลสำรองในเครื่องแทน:", error);
+                loadFallbackData();
+            }
+
+            setDateTimeNow();[cite: 3]
+            loadNextBillNumber();[cite: 3]
+            toggleDocType();[cite: 3]
+        }
 
         function loadFallbackData() {[cite: 3]
             stockData = JSON.parse(localStorage.getItem('vLuckStock')) || [];[cite: 3]
             billHistoryData = JSON.parse(localStorage.getItem('vLuckBillHistory')) || [];[cite: 3]
-            setDateTimeNow();[cite: 3]
-            loadNextBillNumber();[cite: 3]
-            toggleDocType();[cite: 3]
-        }[cite: 3]
+        }
 
-        // ฟังก์ชันซิงค์ข้อมูลส่งขึ้นระบบคลาวด์ผ่าน POST แบบ text/plain ป้องกันปุ่มค้างข้ามไซต์[cite: 3]
-        function syncDataToCloud() {[cite: 3]
-            try {[cite: 3]
+        // ฟังก์ชันส่งข้อมูลเซฟขึ้นไฟล์ JSON บน GitHub แบบเรียลไทม์
+        async function syncDataToCloud() {
+            try {
+                // บันทึกสำรองลงเครื่องไว้เผื่อฉุกเฉิน[cite: 3]
                 localStorage.setItem('vLuckStock', JSON.stringify(stockData));[cite: 3]
                 localStorage.setItem('vLuckBillHistory', JSON.stringify(billHistoryData));[cite: 3]
 
-                const payload = {[cite: 3]
-                    action: "syncAll",[cite: 3]
-                    stock: stockData,[cite: 3]
-                    history: billHistoryData[cite: 3]
-                };[cite: 3]
+                const url = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${DATA_FILE_PATH}`;
+                const databaseContent = {
+                    stock: stockData,
+                    history: billHistoryData
+                };
 
-                fetch(BACKEND_API_URL, {[cite: 3]
-                    method: "POST",[cite: 3]
-                    mode: "cors",[cite: 3]
-                    headers: { "Content-Type": "text/plain;charset=utf-8" },[cite: 3]
-                    body: JSON.stringify(payload)[cite: 3]
-                })[cite: 3]
-                .then(() => console.log("ซิงค์ออนไลน์สำเร็จ!"))[cite: 3]
-                .catch(error => console.error("ซิงค์ออนไลน์ไม่สำเร็จฝั่งคลาวด์:", error));[cite: 3]
+                // แปลงข้อมูลเป็น Base64 รองรับภาษาไทยสมบูรณ์แบบ
+                const jsonString = JSON.stringify(databaseContent);
+                const encodedContent = btoa(encodeURIComponent(jsonString).replace(/%([0-9A-F]{2})/g, function(match, p1) {
+                    return String.fromCharCode('0x' + p1);
+                }));
 
-            } catch (error) {[cite: 3]
-                console.error("ระบบบันทึกขัดข้อง:", error);[cite: 3]
-            }[cite: 3]
-        }[cite: 3]
+                const payload = {
+                    message: "Update database via web online",
+                    content: encodedContent
+                };
+                if (currentFileSha) {
+                    payload.sha = currentFileSha; // ส่งรหัสไฟล์เดิมกำกับไปด้วยเพื่อบันทึกทับ
+                }
 
-        // หน้าเว็บและระบบปุ่มกดตื่นขึ้นมาก่อน ค่อยโหลดข้อมูลจาก Sheets ทีหลัง 1 วินาที เพื่อไม่ให้สคริปต์หยุดทำงาน[cite: 3]
+                const response = await fetch(url, {
+                    method: "PUT",
+                    headers: {
+                        "Authorization": `token ${GITHUB_TOKEN}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    const resData = await response.json();
+                    currentFileSha = resData.content.sha; // อัปเดตรหัสเวอร์ชันไฟล์ล่าสุด
+                    console.log("บันทึกข้อมูลและซิงค์คลาวด์ GitHub เรียบร้อยแล้ว!");
+                } else {
+                    console.error("บันทึกข้อมูลลง GitHub ไม่สำเร็จ");
+                }
+            } catch (error) {
+                console.error("ระบบซิงค์ออนไลน์ขัดข้อง:", error);
+            }
+        }
+
+        // หน้าเว็บเปิดตัวปุ่มกดจะพร้อมทำงานทันที แล้วระบบดึงข้อมูลออนไลน์จะทำงานตามเบื้องหลัง
         window.onload = function() {[cite: 3]
             setDateTimeNow();[cite: 3]
             loadNextBillNumber();[cite: 3]
             toggleDocType();[cite: 3]
             
-            setTimeout(loadOnlineData, 1000);[cite: 3]
+            loadOnlineData(); 
         };[cite: 3]
 
         function setDateTimeNow() {[cite: 3]
@@ -629,7 +669,7 @@
         }[cite: 3]
         function closeStockModal() { document.getElementById('stockModal').style.display = 'none'; }[cite: 3]
         
-        function saveStockItem() {[cite: 3]
+        function saveStockItem() {
             const id = document.getElementById('s_id').value;[cite: 3]
             const name = document.getElementById('s_name').value;[cite: 3]
             const qty = parseNum(document.getElementById('s_qty').value);[cite: 3]
@@ -655,8 +695,8 @@
 
             clearStockForm();[cite: 3]
             renderStockTable();[cite: 3]
-            syncDataToCloud(); [cite: 3]
-        }[cite: 3]
+            syncDataToCloud(); 
+        }
 
         function editStockItem(id) {[cite: 3]
             const item = stockData.find(s => s.id == id);[cite: 3]
@@ -700,7 +740,7 @@
                 stockData = stockData.filter(s => s.id !== id);[cite: 3]
                 if(document.getElementById('s_id').value == id) clearStockForm();[cite: 3]
                 renderStockTable();[cite: 3]
-                syncDataToCloud(); [cite: 3]
+                syncDataToCloud(); 
             }[cite: 3]
         }[cite: 3]
 
@@ -832,7 +872,7 @@
         }[cite: 3]
 
         // --- พิมพ์และซิงค์คลาวด์บิล ---[cite: 3]
-        function printAndSaveBill() {[cite: 3]
+        function printAndSaveBill() {
             const bookNo = document.getElementById('bookNo').value;[cite: 3]
             const billNo = document.getElementById('billNo').value;[cite: 3]
             const dateStr = document.getElementById('date').value;[cite: 3]
@@ -857,7 +897,7 @@
             const billData = { [cite: 3]
                 date: dateStr, time: timeStr, bookNo, billNo, custName, [cite: 3]
                 custTaxId: document.getElementById('custTaxId').value, [cite: 3]
-                custAddress: document.getElementById('custAddress').value, [cite: 3]
+                custAddress: document.getElementById('custAddress').value,  [cite: 3]
                 custTel: document.getElementById('custTel').value, [cite: 3]
                 docType, items, netTotal, status: 'active' [cite: 3]
             };[cite: 3]
@@ -876,11 +916,11 @@
             
             document.getElementById('canceledStamp').style.display = 'none'; [cite: 3]
             window.print();[cite: 3]
-            syncDataToCloud(); [cite: 3]
-        }[cite: 3]
+            syncDataToCloud(); 
+        }
 
         // --- ยกเลิกบิล ---[cite: 3]
-        function cancelBill(bookNo, billNo) {[cite: 3]
+        function cancelBill(bookNo, billNo) {
             if(confirm(`ยืนยันการยกเลิกบิล?\n(ยอดขายจะถูกหักออก และสินค้าในบิลนี้จะถูกคืนเข้าสต็อก)`)) {[cite: 3]
                 const existingIdx = billHistoryData.findIndex(h => h.bookNo === bookNo && h.billNo === billNo);[cite: 3]
                 if (existingIdx >= 0 && billHistoryData[existingIdx].status !== 'canceled') {[cite: 3]
@@ -894,10 +934,10 @@
 
                     billHistoryData[existingIdx].status = 'canceled';[cite: 3]
                     openHistoryModal(); [cite: 3]
-                    syncDataToCloud(); [cite: 3]
+                    syncDataToCloud(); 
                 }[cite: 3]
             }[cite: 3]
-        }[cite: 3]
+        }
 
         // --- ประวัติแดชบอร์ด ---[cite: 3]
         function openHistoryModal() {[cite: 3]
