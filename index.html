@@ -352,42 +352,31 @@
         }
         const currentMonthKey = getMonthKey();
 
-        // 🔗 ผูก URL ระบบ Web App ที่ได้มาจากขั้นตอนที่ 1 ลงตรงนี้ครับ
-        const BACKEND_API_URL = "https://script.google.com/macros/s/AKfycbzfM4vfTbJCqDIGltFk0q-WNwHK8y2FSMPtZXhFs6VWLGTqa3UjSF_2heYWdpbfa4WWhQ/exec";
-
-        // --- ตัวแปรหลักของแอป ---
-        let stockData = [];
-        let billHistoryData = [];
-        let currentImagesBase64 = []; 
-        let currentLightboxImages = [];
-        let currentLightboxIndex = 0;
-        
-        function getMonthKey() {
-            const now = new Date();
-            const yyyy = now.getFullYear();
-            const mm = String(now.getMonth() + 1).padStart(2, '0');
-            return `${yyyy}-${mm}`;
-        }
-        const currentMonthKey = getMonthKey();
-
-        // ฟังก์ชันดึงข้อมูลเรียลไทม์ผ่าน fetch ข้ามแพลตฟอร์ม
-        async function loadOnlineData() {
-            try {
-                console.log("กำลังดึงข้อมูลเรียลไทม์จาก Google Sheets...");
-                const response = await fetch(`${BACKEND_API_URL}?action=readAll`);
-                const cloudData = await response.json();
-                
-                stockData = cloudData.stock || [];
-                billHistoryData = cloudData.history || [];
-                
+        // 💡 ฟังก์ชันดึงข้อมูลเรียลไทม์ผ่าน fetch แบบปลอดภัย ป้องกันเบราว์เซอร์เครื่องอื่นบล็อกระบบ (CORS)
+        function loadOnlineData() {
+            console.log("กำลังเชื่อมต่อระบบฐานข้อมูล Google Sheets...");
+            
+            fetch(`${BACKEND_API_URL}?action=readAll`, {
+                method: "GET",
+                headers: { "Accept": "application/json" }
+            })
+            .then(response => response.json())
+            .then(cloudData => {
+                if (cloudData) {
+                    stockData = cloudData.stock || [];
+                    billHistoryData = cloudData.history || [];
+                    console.log("ซิงค์ฐานข้อมูลออนไลน์สำเร็จ!");
+                } else {
+                    loadFallbackData();
+                }
                 setDateTimeNow();
                 loadNextBillNumber();
                 toggleDocType();
-                console.log("ดึงข้อมูลออนไลน์เสร็จสมบูรณ์!");
-            } catch (error) {
-                console.error("ระบบขัดข้อง ดึงข้อมูลสำรองในเครื่องแทน:", error);
+            })
+            .catch(error => {
+                console.error("เชื่อมต่อคลาวด์ล้มเหลว ใช้ฐานข้อมูลสำรอง:", error);
                 loadFallbackData();
-            }
+            });
         }
 
         function loadFallbackData() {
@@ -398,8 +387,8 @@
             toggleDocType();
         }
 
-        // ฟังก์ชันซิงค์ข้อมูลส่งขึ้นระบบคลาวด์ผ่าน POST
-        async function syncDataToCloud() {
+        // ฟังก์ชันซิงค์ข้อมูลส่งขึ้นระบบคลาวด์ผ่าน POST แบบ text/plain ป้องกันปุ่มค้างข้ามไซต์
+        function syncDataToCloud() {
             try {
                 localStorage.setItem('vLuckStock', JSON.stringify(stockData));
                 localStorage.setItem('vLuckBillHistory', JSON.stringify(billHistoryData));
@@ -410,19 +399,27 @@
                     history: billHistoryData
                 };
 
-                await fetch(BACKEND_API_URL, {
+                fetch(BACKEND_API_URL, {
                     method: "POST",
-                    headers: { "Content-Type": "text/plain" },
+                    mode: "cors", 
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
                     body: JSON.stringify(payload)
-                });
-                console.log("ซิงค์ออนไลน์สำเร็จ!");
+                })
+                .then(() => console.log("ซิงค์ออนไลน์สำเร็จ!"))
+                .catch(error => console.error("ซิงค์ออนไลน์ไม่สำเร็จฝั่งคลาวด์:", error));
+
             } catch (error) {
-                console.error("ซิงค์ออนไลน์ไม่สำเร็จฝั่งเว็บ:", error);
+                console.error("ระบบบันทึกขัดข้อง:", error);
             }
         }
 
+        // 💡 หน้าเว็บและระบบปุ่มกดตื่นขึ้นมาก่อน ค่อยโหลดข้อมูลจาก Sheets ทีหลัง 1 วินาที เพื่อไม่ให้สคริปต์หยุดทำงาน
         window.onload = function() {
-            loadOnlineData(); // ทำการดาวน์โหลดข้อมูลล่าสุดออนไลน์ทันทีที่หน้าเว็บเปิดตัว
+            setDateTimeNow();
+            loadNextBillNumber();
+            toggleDocType();
+            
+            setTimeout(loadOnlineData, 1000);
         };
 
         function setDateTimeNow() {
@@ -632,7 +629,7 @@
         }
         function closeStockModal() { document.getElementById('stockModal').style.display = 'none'; }
         
-        async function saveStockItem() {
+        function saveStockItem() {
             const id = document.getElementById('s_id').value;
             const name = document.getElementById('s_name').value;
             const qty = parseNum(document.getElementById('s_qty').value);
@@ -658,7 +655,7 @@
 
             clearStockForm();
             renderStockTable();
-            await syncDataToCloud(); // บันทึกเสร็จ อัปโหลดขึ้นชีสออนไลน์ทันที
+            syncDataToCloud(); 
         }
 
         function editStockItem(id) {
@@ -698,12 +695,12 @@
             document.getElementById('btnCancelEditStock').style.display = 'none';
         }
 
-        async function deleteStockItem(id) {
+        function deleteStockItem(id) {
             if(confirm('ต้องการลบสินค้านี้ออกจากสต็อกถาวรใช่หรือไม่?')) {
                 stockData = stockData.filter(s => s.id !== id);
                 if(document.getElementById('s_id').value == id) clearStockForm();
                 renderStockTable();
-                await syncDataToCloud(); // ลบเสร็จ อัปโหลดเวอร์ชันอัปเดตขึ้นชีส
+                syncDataToCloud(); 
             }
         }
 
@@ -835,7 +832,7 @@
         }
 
         // --- พิมพ์และซิงค์คลาวด์บิล ---
-        async function printAndSaveBill() {
+        function printAndSaveBill() {
             const bookNo = document.getElementById('bookNo').value;
             const billNo = document.getElementById('billNo').value;
             const dateStr = document.getElementById('date').value;
@@ -879,11 +876,11 @@
             
             document.getElementById('canceledStamp').style.display = 'none'; 
             window.print();
-            await syncDataToCloud(); // ส่งรายการบิลและอัปเดตจำนวนสต็อกออนไลน์ขึ้น Google Sheets ทันที
+            syncDataToCloud(); 
         }
 
         // --- ยกเลิกบิล ---
-        async function cancelBill(bookNo, billNo) {
+        function cancelBill(bookNo, billNo) {
             if(confirm(`ยืนยันการยกเลิกบิล?\n(ยอดขายจะถูกหักออก และสินค้าในบิลนี้จะถูกคืนเข้าสต็อก)`)) {
                 const existingIdx = billHistoryData.findIndex(h => h.bookNo === bookNo && h.billNo === billNo);
                 if (existingIdx >= 0 && billHistoryData[existingIdx].status !== 'canceled') {
@@ -897,7 +894,7 @@
 
                     billHistoryData[existingIdx].status = 'canceled';
                     openHistoryModal(); 
-                    await syncDataToCloud(); // บันทึกผลการยกเลิกลงคลาวด์
+                    syncDataToCloud(); 
                 }
             }
         }
