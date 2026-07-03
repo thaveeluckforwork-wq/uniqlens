@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="format-detection" content="telephone=no">
+    <title>ระบบออกเอกสาร และ สต็อกสินค้า - ร้านแว่นตา UNIQLENS</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap');
+        
+        body { font-family: 'Sarabun', sans-serif; background-color: #f4f4f9; padding: 20px; color: #333; font-size: 14px; margin-top: 40px; }
+        .container { max-width: 950px; margin: 0 auto; background: #fff; padding: 40px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); position: relative; }
+        
+        #canceledStamp { display: none; color: #e74c3c; text-align: center; font-size: 22px; font-weight: bold; margin-bottom: 20px; border: 3px dashed #e74c3c; padding: 10px; border-radius: 8px; background-color: #fdf2f1; }
+
+        .top-right-buttons { position: fixed; top: 15px; right: 20px; z-index: 1000; display: flex; gap: 10px; }
+        .btn-floating { background-color: #3498db; color: white; border: none; padding: 10px 18px; border-radius: 50px; cursor: pointer; font-family: 'Sarabun', sans-serif; font-size: 15px; font-weight: 600; box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: 0.2s; }
+        .btn-floating:hover { background-color: #2980b9; transform: translateY(-2px); }
+        .btn-stock { background-color: #8e44ad; }
+        .btn-stock:hover { background-color: #732d91; }
+
+        .header-section { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; border-bottom: 2px solid #eee; padding-bottom: 15px; }
+        .header-left h1 { color: #2c3e50; margin: 5px 0; font-size: 24px; }
+        .header-left .store-name { color: #2c3e50; font-size: 22px; font-weight: 600; margin: 0 0 5px 0; }
+        .header-left .store-address { font-size: 14px; color: #555; margin-bottom: 15px; line-height: 1.5; }
+        .header-right { text-align: right; }
+        .doc-type { font-size: 16px; font-weight: bold; margin-bottom: 15px; }
+        .doc-info-grid { display: grid; grid-template-columns: auto 120px; gap: 8px 15px; align-items: center; text-align: right; }
+        
+        .customer-info { display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 12px 15px; margin-bottom: 25px; align-items: center; }
+        .customer-info label { font-weight: 600; white-space: nowrap; }
+        .customer-info .full-row { grid-column: 2 / -1; }
+        
+        input, textarea, select { padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-family: 'Sarabun', sans-serif; width: 100%; box-sizing: border-box; }
+        textarea { resize: none; overflow: hidden; min-height: 35px; line-height: 1.5; vertical-align: middle; }
+        select { background-color: #fff; cursor: pointer; }
+
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #eee; padding: 10px; text-align: left; vertical-align: middle; }
+        th { background-color: #fafafa; font-weight: 600; text-align: center; }
+        td input { width: 100%; text-align: right; border: none; }
+        td input[type="text"], td textarea { text-align: left; }
+        td input.qty, td input.price, td input.amount { text-align: right !important; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        
+        .btn-delete { background-color: #e74c3c; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .btn-delete:hover { background-color: #c0392b; }
+
+        .summary-container { display: flex; justify-content: flex-end; margin-top: 20px; }
+        .summary { text-align: right; width: 400px; }
+        .summary-row { display: flex; justify-content: space-between; padding: 5px 15px; color: #555; }
+        .total { font-size: 18px; font-weight: bold; color: #27ae60; background: #f9f9f9; padding: 10px 15px; border: 1px solid #eee; border-radius: 4px; display: flex; justify-content: space-between; margin-top: 10px; }
+        
+        .footer-signatures { display: flex; justify-content: flex-end; margin-top: 40px; padding: 0 20px; }
+        .sign-box { text-align: center; width: 250px; }
+        .sign-box .line { border-bottom: 1px solid #333; margin: 40px 0 10px 0; }
+        .sign-box .sign-label { margin-bottom: 8px; font-weight: bold; color: #333; }
+        
+        .btn-group { display: flex; justify-content: center; gap: 15px; margin-top: 40px; }
+        button { padding: 10px 20px; font-size: 15px; border: none; border-radius: 6px; cursor: pointer; color: #fff; transition: 0.2s; font-family: 'Sarabun', sans-serif; }
+        .btn-add { background-color: #3498db; }
+        .btn-add:hover { background-color: #2980b9; }
+        .btn-add-stock { background-color: #f39c12; }
+        .btn-add-stock:hover { background-color: #d68910; }
+        .btn-print { background-color: #2ecc71; font-weight: bold;}
+        .btn-print:hover { background-color: #27ae60; }
+        .btn-clear { background-color: #95a5a6; }
+        
+        /* Modal & Lightbox */
+        .modal-overlay { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
+        .modal-content { background-color: #fff; padding: 25px; border-radius: 8px; width: 90%; max-width: 900px; max-height: 90vh; overflow-y: auto; position: relative; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .close-btn { position: absolute; top: 15px; right: 20px; font-size: 28px; font-weight: bold; cursor: pointer; color: #aaa; }
+        
+        #lightboxModal { z-index: 2000; background-color: rgba(0,0,0,0.85); flex-direction: row; justify-content: center; align-items: center; }
+        #lightboxImg { max-width: 80%; max-height: 85vh; border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.5); border: 2px solid #fff; object-fit: contain; cursor: default; }
+        .lightbox-close { position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; cursor: pointer; font-weight: bold; z-index: 2001; }
+        .lightbox-nav { cursor: pointer; position: absolute; top: 50%; transform: translateY(-50%); width: auto; padding: 15px 20px; color: white; font-weight: bold; font-size: 30px; transition: 0.3s ease; user-select: none; z-index: 2001; background-color: rgba(0,0,0,0.4); border-radius: 8px; }
+        .lightbox-nav:hover { background-color: rgba(0,0,0,0.9); }
+        .lightbox-prev { left: 20px; }
+        .lightbox-next { right: 20px; }
+
+        .dashboard-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .card { background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #e9ecef; text-align: center; }
+        .card h4 { margin: 0 0 10px 0; color: #555; }
+        .card .amt { font-size: 24px; font-weight: bold; color: #2ecc71; }
+        
+        .search-bar { width: 100%; padding: 10px; border: 2px solid #3498db; border-radius: 6px; font-size: 15px; box-sizing: border-box; outline: none; }
+        
+        .stock-img-thumb { width: 45px; height: 45px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; transition: 0.2s; cursor: zoom-in; }
+        .stock-img-thumb:hover { border-color: #3498db; transform: scale(1.1); box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        
+        .img-preview-wrapper { position: relative; display: inline-block; }
+        .btn-remove-img { position: absolute; top: -5px; right: -5px; background: #e74c3c; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .btn-remove-img:hover { background: #c0392b; }
+
+        @media print {
+            body { background: #fff; padding: 0; margin-top: 0; }
+            .container { box-shadow: none; border: none; padding: 0; max-width: 100%; }
+            button, .btn-group, .btn-add, .btn-add-stock, .top-right-buttons, .modal-overlay { display: none !important; }
+            .action-col { display: none; }
+            .no-print { display: none !important; }
+            input, textarea, select { border: none; background: transparent; outline: none; padding: 0; -webkit-appearance: none; appearance: none;}
+            input[type="text"], input[type="number"], input[type="date"], input[type="time"] { border-bottom: 1px dotted #ccc; border-radius: 0; }
+            textarea { border-bottom: 1px dotted #ccc; border-radius: 0; overflow: visible; height: auto !important; }
+            th, td { border: 1px solid #ccc; }
+            .total { border: none; background: none; padding: 0; margin-top: 10px; }
+            td input[type="text"], td input[type="number"], td textarea { border: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="top-right-buttons no-print">
+        <button class="btn-floating btn-stock" onclick="openStockModal()">📦 สต็อกสินค้า</button>
+        <button class="btn-floating" onclick="openHistoryModal()">📊 ประวัติและยอดขาย</button>
+    </div>
+
+    <div id="lightboxModal" class="modal-overlay no-print" onclick="closeLightbox(event)">
+        <span class="lightbox-close" onclick="closeLightbox(event)">&times;</span>
+        <span class="lightbox-nav lightbox-prev" onclick="changeLightboxImage(-1, event)">&#10094;</span>
+        <img id="lightboxImg" src="" onclick="event.stopPropagation()">
+        <span class="lightbox-nav lightbox-next" onclick="changeLightboxImage(1, event)">&#10095;</span>
+    </div>
+
+    <div class="container">
+        <div id="canceledStamp">*** เอกสารนี้ถูกยกเลิกแล้ว / CANCELED ***</div>
+
+        <div class="header-section">
+            <div class="header-left">
+                <p class="store-name">ร้านแว่นตา UNIQLENS</p>
+                <div class="store-address">
+                    45/109 ฉัตรหลวง19 อ.คลองหลวง ต.คลองสาม จ.ปทุมธานี 12120<br>
+                    โทร / Tel: 0653945525<br>
+                    เลขประจำตัวผู้เสียภาษี / Tax ID: 1640600317211
+                </div>
+                <h1 id="docTitle">ใบเสร็จรับเงิน</h1>
+                <p id="docTitleEn" style="margin: 0; font-size: 16px; color: #555;">Receipt</p>
+            </div>
+            <div class="header-right">
+                <div class="doc-type">ต้นฉบับ / Original</div>
+                <div class="doc-info-grid">
+                    <label class="no-print">ประเภทเอกสาร:</label>
+                    <select id="docTypeSelect" class="no-print" onchange="toggleDocType()">
+                        <option value="receipt" selected>ใบเสร็จรับเงิน (ไม่แสดง VAT)</option>
+                        <option value="tax_invoice">ใบกำกับภาษี / ใบเสร็จรับเงิน</option>
+                    </select>
+                    <label>เล่มที่ / Book No.:</label>
+                    <input type="text" id="bookNo" placeholder="เช่น 2026-06">
+                    <label>เลขที่ / Bill No.:</label>
+                    <input type="text" id="billNo" placeholder="ระบุเลขที่">
+                    <label>วันที่ / Date:</label>
+                    <input type="date" id="date">
+                    <label>เวลา / Time:</label>
+                    <input type="time" id="time">
+                </div>
+            </div>
+        </div>
+        
+        <div class="customer-info">
+            <label>ชื่อลูกค้า / Name:</label>
+            <input type="text" id="custName" placeholder="ชื่อ-นามสกุล / Name or Company">
+            <label class="text-right">เลขประจำตัวผู้เสียภาษี / Tax ID:</label>
+            <input type="text" id="custTaxId" placeholder="เลขประจำตัว 13 หลัก / 13-digit Tax ID">
+            <label>ที่อยู่ / Address:</label>
+            <div class="full-row"><textarea id="custAddress" placeholder="ที่อยู่ลูกค้า / Address" rows="1" oninput="autoResize(this)"></textarea></div>
+            <label>เบอร์โทรศัพท์ / Tel.:</label>
+            <div class="full-row"><input type="text" id="custTel" placeholder="เบอร์โทรศัพท์ติดต่อ / Phone Number"></div>
+        </div>
+
+        <table id="billTable">
+            <thead>
+                <tr>
+                    <th width="5%">ลำดับ</th>
+                    <th width="35%">รายการ</th>
+                    <th width="10%">จำนวน</th>
+                    <th width="15%">ราคาขาย</th>
+                    <th width="15%">ส่วนลด</th>
+                    <th width="15%">จำนวนเงิน</th>
+                    <th width="5%" class="action-col">ลบ</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="text-center row-num">1</td>
+                    <td>
+                        <input type="hidden" class="stock-id" value="">
+                        <textarea class="item-desc" placeholder="รายละเอียดรายการ (พิมพ์เองได้)" rows="1" oninput="autoResize(this)"></textarea>
+                    </td>
+                    <td><input type="text" value="1" class="qty" oninput="formatInput(this); calculateRow(this)"></td>
+                    <td><input type="text" value="0" class="price" oninput="formatInput(this); calculateRow(this)"></td>
+                    <td class="text-right" style="color: #e74c3c;"><span class="row-discount">0.00</span></td>
+                    <td><input type="text" value="0" class="amount" oninput="formatInput(this); calculateRow(this)"></td>
+                    <td class="text-center action-col"><button class="btn-delete" onclick="deleteRow(this)">✕</button></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div style="text-align: left; display: flex; gap: 10px; margin-bottom: 20px;">
+            <button class="btn-add no-print" onclick="addRow()">+ พิมพ์รายการเอง</button>
+            <button class="btn-add-stock no-print" onclick="openSelectStockModal()">🛒 เลือกจากสต็อก</button>
+        </div>
+
+        <div class="summary-container">
+            <div class="summary">
+                <div class="summary-row vat-row" style="display: none;">
+                    <span>มูลค่าสินค้ารวม / Total Amount:</span>
+                    <span><span id="sumTotal">0.00</span> บาท</span>
+                </div>
+                <div class="summary-row vat-row" style="display: none;">
+                    <span>มูลค่าสินค้าก่อนภาษี / Value Before VAT:</span>
+                    <span><span id="beforeVat">0.00</span> บาท</span>
+                </div>
+                <div class="summary-row vat-row" style="display: none;">
+                    <span>ภาษีมูลค่าเพิ่ม / VAT 7%:</span>
+                    <span><span id="vatAmount">0.00</span> บาท</span>
+                </div>
+                <div class="total">
+                    <span id="grandTotalLabel">ยอดชำระสุทธิ / Grand Total:</span>
+                    <span><span id="netTotal">0.00</span> บาท</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer-signatures">
+            <div class="sign-box">
+                <div class="line"></div>
+                <div class="sign-label">ผู้รับเงิน / Received By</div>
+                <div style="font-size: 13px; margin-top: 5px; color: #555;">วันที่ / Date: <input type="text" style="width: 150px; border:none; text-align:center;"></div>
+            </div>
+        </div>
+
+        <div class="btn-group no-print">
+            <button class="btn-clear" onclick="resetForm()">🔄 เริ่มบิลใหม่ (Clear)</button>
+            <button class="btn-print" onclick="printAndSaveBill()">🖨️ บันทึกและพิมพ์เอกสาร</button>
+        </div>
+    </div>
+
+    <div id="stockModal" class="modal-overlay no-print">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeStockModal()">&times;</span>
+            <h2 style="color: #8e44ad; margin-top: 0;">📦 จัดการสต็อกสินค้า</h2>
+            
+            <input type="hidden" id="s_id" value=""> 
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                <div style="grid-column: span 3; display: flex; align-items: flex-start; gap: 15px; background: #f9f9f9; padding: 10px; border-radius: 6px; border: 1px solid #eee;">
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">📸 อัปโหลดรูปภาพ (เลือกได้หลายรูป)</label>
+                        <input type="file" id="s_image" accept="image/*" multiple onchange="handleMultipleImages(this)" style="padding: 4px; font-size: 13px; background: #fff; width: 250px;">
+                        <p style="margin: 5px 0 0 0; font-size: 11px; color: #888;">* แนะนำอัปโหลดรูปเฉพาะที่จำเป็น เพื่อประหยัดพื้นที่หน่วยความจำ</p>
+                    </div>
+                    <div id="s_images_preview_container" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
+                </div>
+                
+                <div><label>ชื่อสินค้า / แบรนด์</label><input type="text" id="s_name" placeholder="เช่น Hoya - เลนส์"></div>
+                <div><label>จำนวนคงเหลือ</label><input type="text" id="s_qty" placeholder="0" oninput="formatInput(this)"></div>
+                <div><label>ราคาป้าย (บาท)</label><input type="text" id="s_tag_price" placeholder="0" oninput="formatInput(this)"></div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                <div><label>ราคาขายจริง (บาท)</label><input type="text" id="s_sell_price" placeholder="0" oninput="formatInput(this)"></div>
+                <div style="display: flex; align-items: flex-end; gap: 10px;">
+                    <button id="btnSaveStock" style="background-color: #2ecc71; width: 100%;" onclick="saveStockItem()">💾 บันทึกสินค้า</button>
+                    <button id="btnCancelEditStock" style="background-color: #95a5a6; width: 100%; display: none;" onclick="clearStockForm()">❌ ยกเลิก</button>
+                </div>
+                <div style="display: flex; align-items: flex-end;">
+                    <button style="background-color: #f39c12; width: 100%;" onclick="printStockList()">🖨️ พิมพ์สต็อก</button>
+                </div>
+            </div>
+            
+            <hr style="border:0; border-bottom:1px solid #ddd; margin-bottom:15px;">
+            <input type="text" id="searchManageStockInput" class="search-bar" placeholder="🔍 ค้นหาสินค้า หรือ แบรนด์..." oninput="renderStockTable()" style="margin-bottom: 15px;">
+            
+            <table id="stockTableToPrint" style="font-size: 13px;">
+                <thead>
+                    <tr>
+                        <th width="15%">รูปภาพ</th>
+                        <th width="20%">ชื่อสินค้า / แบรนด์</th>
+                        <th width="10%" class="text-center">คงเหลือ</th>
+                        <th width="15%" class="text-right">ราคาป้าย</th>
+                        <th width="20%" class="text-right">ราคาขาย</th>
+                        <th width="20%" class="text-center">จัดการ</th>
+                    </tr>
+                </thead>
+                <tbody id="stockTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="selectStockModal" class="modal-overlay no-print">
+        <div class="modal-content" style="max-width: 750px;">
+            <span class="close-btn" onclick="closeSelectStockModal()">&times;</span>
+            <h2 style="color: #f39c12; margin-top: 0;">🛒 เลือกสินค้าจากสต็อก</h2>
+            
+            <input type="text" id="searchStockInput" class="search-bar" placeholder="🔍 พิมพ์ชื่อสินค้า หรือ ราคา เพื่อค้นหา..." oninput="renderSelectStockTable()" style="margin-bottom: 15px;">
+
+            <table style="font-size: 13px;">
+                <thead>
+                    <tr>
+                        <th width="20%" class="text-center">รูปภาพ</th>
+                        <th width="30%">ชื่อสินค้า</th>
+                        <th width="15%" class="text-center">คงเหลือ</th>
+                        <th width="20%" class="text-right">ราคาขาย</th>
+                        <th width="15%" class="text-center">เลือก</th>
+                    </tr>
+                </thead>
+                <tbody id="selectStockTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="historyModal" class="modal-overlay no-print">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeHistoryModal()">&times;</span>
+            <h2 style="margin-top: 0; color: #2c3e50;">📊 ประวัติการออกบิลและยอดขาย</h2>
+            <div class="dashboard-cards">
+                <div class="card"><h4>ยอดขายวันนี้</h4><div class="amt"><span id="dailyTotalDisplay">0.00</span> ฿</div></div>
+                <div class="card"><h4>ยอดขายเดือนนี้</h4><div class="amt"><span id="monthlyTotalDisplay">0.00</span> ฿</div></div>
+            </div>
+            <table style="width: 100%; font-size: 13px;">
+                <thead>
+                    <tr>
+                        <th width="20%">วันที่ / เวลา</th>
+                        <th width="25%">เล่มที่ / เลขที่</th>
+                        <th width="20%">ชื่อลูกค้า</th>
+                        <th width="15%" class="text-right">ยอดสุทธิ</th>
+                        <th width="20%" class="text-center">จัดการ</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // 🔗 ผูก URL ระบบ Web App ของคุณสำหรับการดึง-ส่งข้อมูลออนไลน์
+        const BACKEND_API_URL = "https://script.google.com/macros/s/AKfycbyWIO-1J2i5jvjDDP-HbGo908XfDfu1BzGNOR6QRYeylXH3ZZ4osyuF0zAF-DFDJmskCg/exec";
+
+        // --- ตัวแปรหลักของแอป ---
+        let stockData = [];
+        let billHistoryData = [];
+        let currentImagesBase64 = []; 
+        let currentLightboxImages = [];
+        let currentLightboxIndex = 0;
+        
+        function getMonthKey() {
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            return `${yyyy}-${mm}`;
+        }
+        const currentMonthKey = getMonthKey();
+
+        // 🔗 ผูก URL ระบบ Web App ที่ได้มาจากขั้นตอนที่ 1 ลงตรงนี้ครับ
+        const BACKEND_API_URL = "https://script.google.com/macros/s/AKfycbzfM4vfTbJCqDIGltFk0q-WNwHK8y2FSMPtZXhFs6VWLGTqa3UjSF_2heYWdpbfa4WWhQ/exec";
+
+        // --- ตัวแปรหลักของแอป ---
+        let stockData = [];
+        let billHistoryData = [];
+        let currentImagesBase64 = []; 
+        let currentLightboxImages = [];
+        let currentLightboxIndex = 0;
+        
+        function getMonthKey() {
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            return `${yyyy}-${mm}`;
+        }
+        const currentMonthKey = getMonthKey();
+
+        // ฟังก์ชันดึงข้อมูลเรียลไทม์ผ่าน fetch ข้ามแพลตฟอร์ม
+        async function loadOnlineData() {
+            try {
+                console.log("กำลังดึงข้อมูลเรียลไทม์จาก Google Sheets...");
+                const response = await fetch(`${BACKEND_API_URL}?action=readAll`);
+                const cloudData = await response.json();
+                
+                stockData = cloudData.stock || [];
+                billHistoryData = cloudData.history || [];
+                
+                setDateTimeNow();
+                loadNextBillNumber();
+                toggleDocType();
+                console.log("ดึงข้อมูลออนไลน์เสร็จสมบูรณ์!");
+            } catch (error) {
+                console.error("ระบบขัดข้อง ดึงข้อมูลสำรองในเครื่องแทน:", error);
+                loadFallbackData();
+            }
+        }
+
+        function loadFallbackData() {
+            stockData = JSON.parse(localStorage.getItem('vLuckStock')) || [];
+            billHistoryData = JSON.parse(localStorage.getItem('vLuckBillHistory')) || [];
+            setDateTimeNow();
+            loadNextBillNumber();
+            toggleDocType();
+        }
+
+        // ฟังก์ชันซิงค์ข้อมูลส่งขึ้นระบบคลาวด์ผ่าน POST
+        async function syncDataToCloud() {
+            try {
+                localStorage.setItem('vLuckStock', JSON.stringify(stockData));
+                localStorage.setItem('vLuckBillHistory', JSON.stringify(billHistoryData));
+
+                const payload = {
+                    action: "syncAll",
+                    stock: stockData,
+                    history: billHistoryData
+                };
+
+                await fetch(BACKEND_API_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "text/plain" },
+                    body: JSON.stringify(payload)
+                });
+                console.log("ซิงค์ออนไลน์สำเร็จ!");
+            } catch (error) {
+                console.error("ซิงค์ออนไลน์ไม่สำเร็จฝั่งเว็บ:", error);
+            }
+        }
+
+        window.onload = function() {
+            loadOnlineData(); // ทำการดาวน์โหลดข้อมูลล่าสุดออนไลน์ทันทีที่หน้าเว็บเปิดตัว
+        };
+
+        function setDateTimeNow() {
+            const now = new Date();
+            document.getElementById('date').valueAsDate = now;
+            document.getElementById('time').value = now.toTimeString().slice(0,5);
+        }
+
+        function loadNextBillNumber() {
+            document.getElementById('bookNo').value = currentMonthKey;
+            let lastBillNo = 0;
+            billHistoryData.forEach(h => {
+                if(h.bookNo === currentMonthKey) {
+                    let num = parseInt(h.billNo.replace(/\D/g, '')) || 0;
+                    if(num > lastBillNo) lastBillNo = num;
+                }
+            });
+            let nextBillNo = lastBillNo + 1;
+            document.getElementById('billNo').value = nextBillNo.toString().padStart(5, '0');
+        }
+
+        function resetForm() {
+            document.getElementById('custName').value = '';
+            document.getElementById('custTaxId').value = '';
+            document.getElementById('custAddress').value = '';
+            document.getElementById('custTel').value = '';
+            document.getElementById('custAddress').style.height = 'auto';
+            document.getElementById('canceledStamp').style.display = 'none'; 
+            document.getElementById('docTypeSelect').value = 'receipt';
+            toggleDocType();
+
+            document.querySelectorAll('.footer-signatures input').forEach(input => input.value = '');
+
+            const tbody = document.querySelector("#billTable tbody");
+            tbody.innerHTML = `
+                <tr>
+                    <td class="text-center row-num">1</td>
+                    <td>
+                        <input type="hidden" class="stock-id" value="">
+                        <textarea class="item-desc" placeholder="รายละเอียดรายการ (พิมพ์เองได้)" rows="1" oninput="autoResize(this)"></textarea>
+                    </td>
+                    <td><input type="text" value="1" class="qty" oninput="formatInput(this); calculateRow(this)"></td>
+                    <td><input type="text" value="0" class="price" oninput="formatInput(this); calculateRow(this)"></td>
+                    <td class="text-right" style="color: #e74c3c;"><span class="row-discount">0.00</span></td>
+                    <td><input type="text" value="0" class="amount" oninput="formatInput(this); calculateRow(this)"></td>
+                    <td class="text-center action-col"><button class="btn-delete" onclick="deleteRow(this)">✕</button></td>
+                </tr>
+            `;
+            calculateGrandTotal();
+            setDateTimeNow();
+            loadNextBillNumber();
+        }
+
+        function toggleDocType() {
+            const docType = document.getElementById('docTypeSelect').value;
+            const title = document.getElementById('docTitle');
+            const titleEn = document.getElementById('docTitleEn');
+            const vatRows = document.querySelectorAll('.vat-row');
+            if (docType === 'receipt') {
+                title.innerText = 'ใบเสร็จรับเงิน';
+                titleEn.innerText = 'Receipt';
+                vatRows.forEach(row => row.style.display = 'none');
+            } else {
+                title.innerText = 'ใบกำกับภาษี / ใบเสร็จรับเงิน';
+                titleEn.innerText = 'Tax Invoice / Receipt';
+                vatRows.forEach(row => row.style.display = 'flex');
+            }
+        }
+
+        // --- ระบบ Lightbox ---
+        function openLightboxFromPreview(index) {
+            currentLightboxImages = currentImagesBase64;
+            currentLightboxIndex = index;
+            updateLightboxView();
+            document.getElementById('lightboxModal').style.display = 'flex';
+        }
+
+        function openLightboxFromStock(stockId, index) {
+            const item = stockData.find(s => s.id === stockId);
+            if (item) {
+                currentLightboxImages = (item.images && item.images.length > 0) ? item.images : (item.image ? [item.image] : []);
+                currentLightboxIndex = index;
+                updateLightboxView();
+                document.getElementById('lightboxModal').style.display = 'flex';
+            }
+        }
+
+        function updateLightboxView() {
+            if(currentLightboxImages.length > 0) {
+                document.getElementById('lightboxImg').src = currentLightboxImages[currentLightboxIndex];
+                const displayNav = currentLightboxImages.length > 1 ? 'block' : 'none';
+                document.querySelector('.lightbox-prev').style.display = displayNav;
+                document.querySelector('.lightbox-next').style.display = displayNav;
+            }
+        }
+
+        function changeLightboxImage(direction, event) {
+            if (event) event.stopPropagation();
+            currentLightboxIndex += direction;
+            if (currentLightboxIndex >= currentLightboxImages.length) {
+                currentLightboxIndex = 0;
+            } else if (currentLightboxIndex < 0) {
+                currentLightboxIndex = currentLightboxImages.length - 1;
+            }
+            updateLightboxView();
+        }
+
+        function closeLightbox(event) {
+            if(event.target.id === 'lightboxModal' || event.target.className.includes('lightbox-close')) {
+                document.getElementById('lightboxModal').style.display = 'none';
+                document.getElementById('lightboxImg').src = '';
+                currentLightboxImages = [];
+            }
+        }
+
+        document.addEventListener('keydown', function(event) {
+            const lightbox = document.getElementById('lightboxModal');
+            if (lightbox.style.display === 'flex') {
+                if (event.key === 'ArrowLeft') changeLightboxImage(-1);
+                else if (event.key === 'ArrowRight') changeLightboxImage(1);
+                else if (event.key === 'Escape') {
+                    lightbox.style.display = 'none';
+                    document.getElementById('lightboxImg').src = '';
+                }
+            }
+        });
+
+        // --- บีบอัดรูปภาพ ---
+        function handleMultipleImages(input) {
+            if (input.files) {
+                Array.from(input.files).forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const img = new Image();
+                        img.onload = function() {
+                            const canvas = document.createElement('canvas');
+                            const MAX_WIDTH = 500;
+                            const MAX_HEIGHT = 500;
+                            let width = img.width;
+                            let height = img.height;
+                            
+                            if (width > height) {
+                                if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                            } else {
+                                if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+                            }
+                            
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, width, height);
+                            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                            currentImagesBase64.push(dataUrl);
+                            renderImagePreviews();
+                        }
+                        img.src = e.target.result;
+                    }
+                    reader.readAsDataURL(file);
+                });
+                input.value = ''; 
+            }
+        }
+
+        function renderImagePreviews() {
+            const container = document.getElementById('s_images_preview_container');
+            container.innerHTML = '';
+            if(currentImagesBase64.length === 0) {
+                container.innerHTML = '<span style="color:#aaa; font-size:12px; align-self:center;">ยังไม่ได้เลือกรูปภาพ</span>';
+                return;
+            }
+            currentImagesBase64.forEach((base64, index) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'img-preview-wrapper';
+                wrapper.innerHTML = `
+                    <img src="${base64}" class="stock-img-thumb" onclick="openLightboxFromPreview(${index})" title="คลิกเพื่อดูรูปใหญ่">
+                    <button class="btn-remove-img" onclick="removeImage(${index})" title="ลบรูปนี้">✕</button>
+                `;
+                container.appendChild(wrapper);
+            });
+        }
+
+        function removeImage(index) {
+            currentImagesBase64.splice(index, 1);
+            renderImagePreviews();
+        }
+
+        function generateImageHTML(item) {
+            let images = [];
+            if (item.images && Array.isArray(item.images)) images = item.images;
+            else if (item.image) images = [item.image];
+            
+            if (images.length === 0) return '<span style="color:#ccc; font-size: 11px;">ไม่มีรูป</span>';
+            let html = '<div style="display: flex; gap: 4px; flex-wrap: wrap; justify-content: center;">';
+            images.forEach((img, index) => {
+                html += `<img src="${img}" class="stock-img-thumb" onclick="openLightboxFromStock(${item.id}, ${index})" title="คลิกเพื่อดูรูปใหญ่">`;
+            });
+            html += '</div>';
+            return html;
+        }
+
+        // --- ระบบสต็อกสินค้า ---
+        function openStockModal() {
+            clearStockForm();
+            document.getElementById('searchManageStockInput').value = '';
+            renderStockTable();
+            document.getElementById('stockModal').style.display = 'flex';
+        }
+        function closeStockModal() { document.getElementById('stockModal').style.display = 'none'; }
+        
+        async function saveStockItem() {
+            const id = document.getElementById('s_id').value;
+            const name = document.getElementById('s_name').value;
+            const qty = parseNum(document.getElementById('s_qty').value);
+            const tagPrice = parseNum(document.getElementById('s_tag_price').value);
+            const sellPrice = parseNum(document.getElementById('s_sell_price').value);
+
+            if(!name) return alert('กรุณาระบุชื่อสินค้า');
+
+            if(id) {
+                const index = stockData.findIndex(s => s.id == id);
+                if(index > -1) {
+                    stockData[index] = { 
+                        id: parseInt(id), name, qty, tagPrice, sellPrice, 
+                        images: [...currentImagesBase64] 
+                    };
+                }
+            } else {
+                stockData.push({ 
+                    id: Date.now(), name, qty, tagPrice, sellPrice, 
+                    images: [...currentImagesBase64] 
+                });
+            }
+
+            clearStockForm();
+            renderStockTable();
+            await syncDataToCloud(); // บันทึกเสร็จ อัปโหลดขึ้นชีสออนไลน์ทันที
+        }
+
+        function editStockItem(id) {
+            const item = stockData.find(s => s.id == id);
+            if(!item) return;
+
+            document.getElementById('s_id').value = item.id;
+            document.getElementById('s_name').value = item.name;
+            document.getElementById('s_qty').value = item.qty;
+            document.getElementById('s_tag_price').value = item.tagPrice;
+            document.getElementById('s_sell_price').value = item.sellPrice;
+            
+            currentImagesBase64 = [];
+            if (item.images && Array.isArray(item.images)) currentImagesBase64 = [...item.images];
+            else if (item.image) currentImagesBase64 = [item.image];
+            
+            renderImagePreviews();
+            formatInput(document.getElementById('s_qty'));
+            formatInput(document.getElementById('s_tag_price'));
+            formatInput(document.getElementById('s_sell_price'));
+
+            document.getElementById('btnSaveStock').innerText = '💾 อัปเดตสินค้า';
+            document.getElementById('btnSaveStock').style.backgroundColor = '#f39c12';
+            document.getElementById('btnCancelEditStock').style.display = 'block';
+        }
+
+        function clearStockForm() {
+            document.getElementById('s_id').value = '';
+            document.getElementById('s_name').value = '';
+            document.getElementById('s_qty').value = '';
+            document.getElementById('s_tag_price').value = '';
+            document.getElementById('s_sell_price').value = '';
+            currentImagesBase64 = [];
+            renderImagePreviews();
+            document.getElementById('btnSaveStock').innerText = '💾 บันทึกสินค้า';
+            document.getElementById('btnSaveStock').style.backgroundColor = '#2ecc71';
+            document.getElementById('btnCancelEditStock').style.display = 'none';
+        }
+
+        async function deleteStockItem(id) {
+            if(confirm('ต้องการลบสินค้านี้ออกจากสต็อกถาวรใช่หรือไม่?')) {
+                stockData = stockData.filter(s => s.id !== id);
+                if(document.getElementById('s_id').value == id) clearStockForm();
+                renderStockTable();
+                await syncDataToCloud(); // ลบเสร็จ อัปโหลดเวอร์ชันอัปเดตขึ้นชีส
+            }
+        }
+
+        function renderStockTable() {
+            const tbody = document.getElementById('stockTableBody');
+            tbody.innerHTML = '';
+            stockData.sort((a, b) => a.name.localeCompare(b.name));
+            
+            const keyword = document.getElementById('searchManageStockInput').value.toLowerCase();
+            const filteredStock = stockData.filter(s => {
+                const searchStr = `${s.name} ${s.sellPrice} ${s.tagPrice}`.toLowerCase();
+                return searchStr.includes(keyword);
+            });
+
+            if(filteredStock.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="color:#999; padding: 15px;">ไม่พบสินค้าที่ค้นหา</td></tr>';
+                return;
+            }
+
+            filteredStock.forEach(s => {
+                const imgHTML = generateImageHTML(s);
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="text-center">${imgHTML}</td>
+                        <td>${s.name}</td>
+                        <td class="text-center" style="font-weight:bold; color: ${s.qty <= 0 ? 'red' : 'green'};">${s.qty}</td>
+                        <td class="text-right" style="color:#7f8c8d; text-decoration: line-through;">${s.tagPrice.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
+                        <td class="text-right" style="font-weight:bold; color:#2980b9;">${s.sellPrice.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
+                        <td class="text-center">
+                            <button style="background:#f39c12; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; margin-right:4px;" onclick="editStockItem(${s.id})">แก้ไข</button>
+                            <button style="background:red; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="deleteStockItem(${s.id})">ลบ</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function printStockList() {
+            stockData.sort((a, b) => a.name.localeCompare(b.name));
+            let tableRows = '';
+            stockData.forEach(s => {
+                tableRows += `
+                    <tr>
+                        <td>${s.name}</td>
+                        <td class="text-center">${s.qty}</td>
+                        <td class="text-right">${s.tagPrice.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
+                        <td class="text-right">${s.sellPrice.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
+                    </tr>
+                `;
+            });
+
+            let printContent = `
+                <html>
+                <head><style>body { font-family: 'Sarabun', sans-serif; padding: 20px; } table { width: 100%; border-collapse: collapse; margin-top: 20px; } th, td { border: 1px solid #000; padding: 10px; text-align: left; } th { background: #eee; } .text-right { text-align: right; } .text-center { text-align: center; }</style></head>
+                <body><h2>รายการสต็อกสินค้าทั้งหมด (เรียงตามชื่อ/แบรนด์)</h2><p>วันที่พิมพ์: ${new Date().toLocaleDateString('th-TH')}</p><table><thead><tr><th>ชื่อสินค้า / แบรนด์</th><th class="text-center">คงเหลือ</th><th class="text-right">ราคาป้าย</th><th class="text-right">ราคาขาย</th></tr></thead><tbody>${tableRows}</tbody></table></body>
+                </html>
+            `;
+            let printWindow = window.open('', '_blank');
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+            printWindow.print();
+        }
+
+        // --- ระบบเลือกสินค้าลงบิล ---
+        function openSelectStockModal() {
+            document.getElementById('searchStockInput').value = '';
+            renderSelectStockTable();
+            document.getElementById('selectStockModal').style.display = 'flex';
+        }
+        function closeSelectStockModal() { document.getElementById('selectStockModal').style.display = 'none'; }
+
+        function renderSelectStockTable() {
+            const tbody = document.getElementById('selectStockTableBody');
+            tbody.innerHTML = '';
+            const keyword = document.getElementById('searchStockInput').value.toLowerCase();
+
+            const filteredStock = stockData.filter(s => {
+                const searchStr = `${s.name} ${s.sellPrice}`.toLowerCase();
+                return s.qty > 0 && searchStr.includes(keyword);
+            });
+
+            if(filteredStock.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center" style="color:#999; padding: 15px;">ไม่พบสินค้าที่ค้นหา (หรือของหมดสต็อก)</td></tr>';
+                return;
+            }
+
+            filteredStock.forEach(s => {
+                const imgHTML = generateImageHTML(s);
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="text-center">${imgHTML}</td>
+                        <td>${s.name}</td>
+                        <td class="text-center">${s.qty}</td>
+                        <td class="text-right" style="font-weight:bold;">${s.sellPrice.toLocaleString('th-TH', {minimumFractionDigits: 2})}</td>
+                        <td class="text-center"><button style="background:#f39c12; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;" onclick="addItemFromStock(${s.id})">เลือก</button></td>
+                    </tr>
+                `;
+            });
+        }
+
+        function addItemFromStock(id) {
+            const item = stockData.find(s => s.id === id);
+            if(!item) return;
+
+            const firstRow = document.querySelector("#billTable tbody tr");
+            const firstDesc = firstRow.querySelector(".item-desc").value.trim();
+            const firstPrice = parseNum(firstRow.querySelector(".price").value);
+            
+            let targetRow;
+            if(document.querySelectorAll("#billTable tbody tr").length === 1 && firstDesc === '' && firstPrice === 0) {
+                targetRow = firstRow; 
+            } else {
+                addRow(); 
+                const rows = document.querySelectorAll("#billTable tbody tr");
+                targetRow = rows[rows.length - 1];
+            }
+
+            targetRow.querySelector(".stock-id").value = item.id;
+            const descElem = targetRow.querySelector(".item-desc");
+            descElem.value = item.name;
+            autoResize(descElem);
+            
+            targetRow.querySelector(".qty").value = "1";
+            targetRow.querySelector(".price").value = item.sellPrice.toLocaleString('th-TH');
+            targetRow.querySelector(".amount").value = item.sellPrice.toLocaleString('th-TH');
+
+            calculateRow(targetRow.querySelector(".qty"));
+            closeSelectStockModal();
+        }
+
+        // --- พิมพ์และซิงค์คลาวด์บิล ---
+        async function printAndSaveBill() {
+            const bookNo = document.getElementById('bookNo').value;
+            const billNo = document.getElementById('billNo').value;
+            const dateStr = document.getElementById('date').value;
+            const timeStr = document.getElementById('time').value;
+            const custName = document.getElementById('custName').value || 'ลูกค้าทั่วไป';
+            const docType = document.getElementById('docTypeSelect').value;
+
+            const items = [];
+            document.querySelectorAll("#billTable tbody tr").forEach(row => {
+                items.push({
+                    stockId: row.querySelector(".stock-id") ? row.querySelector(".stock-id").value : "",
+                    desc: row.querySelector(".item-desc").value,
+                    qty: row.querySelector(".qty").value,
+                    price: row.querySelector(".price").value,
+                    amount: row.querySelector(".amount").value
+                });
+            });
+            
+            const netTotal = parseNum(document.getElementById('netTotal').innerText);
+            const existingIdx = billHistoryData.findIndex(h => h.bookNo === bookNo && h.billNo === billNo);
+            
+            const billData = { 
+                date: dateStr, time: timeStr, bookNo, billNo, custName, 
+                custTaxId: document.getElementById('custTaxId').value, 
+                custAddress: document.getElementById('custAddress').value, 
+                custTel: document.getElementById('custTel').value, 
+                docType, items, netTotal, status: 'active' 
+            };
+            
+            if (existingIdx >= 0) {
+                billHistoryData[existingIdx] = billData;
+            } else {
+                billHistoryData.push(billData);
+                items.forEach(it => {
+                    if (it.stockId) {
+                        const sItem = stockData.find(s => s.id == it.stockId);
+                        if (sItem) sItem.qty -= parseNum(it.qty);
+                    }
+                });
+            }
+            
+            document.getElementById('canceledStamp').style.display = 'none'; 
+            window.print();
+            await syncDataToCloud(); // ส่งรายการบิลและอัปเดตจำนวนสต็อกออนไลน์ขึ้น Google Sheets ทันที
+        }
+
+        // --- ยกเลิกบิล ---
+        async function cancelBill(bookNo, billNo) {
+            if(confirm(`ยืนยันการยกเลิกบิล?\n(ยอดขายจะถูกหักออก และสินค้าในบิลนี้จะถูกคืนเข้าสต็อก)`)) {
+                const existingIdx = billHistoryData.findIndex(h => h.bookNo === bookNo && h.billNo === billNo);
+                if (existingIdx >= 0 && billHistoryData[existingIdx].status !== 'canceled') {
+                    
+                    billHistoryData[existingIdx].items.forEach(it => {
+                        if (it.stockId) {
+                            const sItem = stockData.find(s => s.id == it.stockId);
+                            if (sItem) sItem.qty += parseNum(it.qty);
+                        }
+                    });
+
+                    billHistoryData[existingIdx].status = 'canceled';
+                    openHistoryModal(); 
+                    await syncDataToCloud(); // บันทึกผลการยกเลิกลงคลาวด์
+                }
+            }
+        }
+
+        // --- ประวัติแดชบอร์ด ---
+        function openHistoryModal() {
+            const todayStr = new Date().toISOString().split('T')[0]; 
+            let dailyTotal = 0, monthlyTotal = 0;
+            const tbody = document.getElementById('historyTableBody');
+            tbody.innerHTML = '';
+
+            billHistoryData.slice().reverse().forEach(h => {
+                const isCanceled = h.status === 'canceled';
+                if (!isCanceled) {
+                    if (h.date === todayStr) dailyTotal += parseFloat(h.netTotal);
+                    if (h.date.startsWith(currentMonthKey)) monthlyTotal += parseFloat(h.netTotal);
+                }
+
+                const tr = document.createElement('tr');
+                if (isCanceled) tr.style.opacity = '0.5'; 
+
+                let badge = isCanceled ? '<br><span style="color:#e74c3c; font-weight:bold; font-size:12px;">[ยกเลิกแล้ว]</span>' : '';
+                let amountDisplay = isCanceled 
+                    ? `<s style="color:#999;">${parseFloat(h.netTotal).toLocaleString('th-TH', {minimumFractionDigits: 2})}</s>`
+                    : `<span style="color:#27ae60; font-weight:bold;">${parseFloat(h.netTotal).toLocaleString('th-TH', {minimumFractionDigits: 2})}</span>`;
+
+                let actionBtns = `<button style="background:#9b59b6; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:12px; cursor:pointer;" onclick="loadBill('${h.bookNo}', '${h.billNo}')">เปิดดู</button>`;
+                if (!isCanceled) {
+                    actionBtns += `<button style="background:#e74c3c; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:12px; cursor:pointer; margin-left:4px;" onclick="cancelBill('${h.bookNo}', '${h.billNo}')">ยกเลิก</button>`;
+                }
+
+                tr.innerHTML = `
+                    <td>${h.date} <br><small style="color:#888">${h.time}</small></td>
+                    <td>เล่ม: ${h.bookNo} <br>เลขที่: <strong>${h.billNo}</strong> ${badge}</td>
+                    <td>${h.custName}</td>
+                    <td class="text-right">${amountDisplay}</td>
+                    <td class="text-center">${actionBtns}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            document.getElementById('dailyTotalDisplay').innerText = dailyTotal.toLocaleString('th-TH', {minimumFractionDigits: 2});
+            document.getElementById('monthlyTotalDisplay').innerText = monthlyTotal.toLocaleString('th-TH', {minimumFractionDigits: 2});
+            document.getElementById('historyModal').style.display = 'flex';
+        }
+        function closeHistoryModal() { document.getElementById('historyModal').style.display = 'none'; }
+
+        function loadBill(bookNo, billNo) {
+            const bill = billHistoryData.find(h => h.bookNo === bookNo && h.billNo === billNo);
+            if (bill) {
+                document.getElementById('canceledStamp').style.display = (bill.status === 'canceled') ? 'block' : 'none';
+                document.getElementById('bookNo').value = bill.bookNo || '';
+                document.getElementById('billNo').value = bill.billNo || '';
+                document.getElementById('date').value = bill.date || '';
+                document.getElementById('time').value = bill.time || '';
+                document.getElementById('custName').value = bill.custName === 'ลูกค้าทั่วไป' ? '' : (bill.custName || '');
+                document.getElementById('custTaxId').value = bill.custTaxId || '';
+                const addrElem = document.getElementById('custAddress');
+                addrElem.value = bill.custAddress || '';
+                autoResize(addrElem); 
+                document.getElementById('custTel').value = bill.custTel || '';
+                document.getElementById('docTypeSelect').value = bill.docType || 'receipt'; 
+                toggleDocType();
+
+                const tbody = document.querySelector("#billTable tbody");
+                tbody.innerHTML = '';
+                
+                if (bill.items && bill.items.length > 0) {
+                    bill.items.forEach((item) => {
+                        const row = document.createElement("tr");
+                        const sid = item.stockId || '';
+                        row.innerHTML = `
+                            <td class="text-center row-num"></td>
+                            <td>
+                                <input type="hidden" class="stock-id" value="${sid}">
+                                <textarea class="item-desc" rows="1" oninput="autoResize(this)"></textarea>
+                            </td>
+                            <td><input type="text" class="qty" oninput="formatInput(this); calculateRow(this)"></td>
+                            <td><input type="text" class="price" oninput="formatInput(this); calculateRow(this)"></td>
+                            <td class="text-right" style="color: #e74c3c;"><span class="row-discount">0.00</span></td>
+                            <td><input type="text" class="amount" oninput="formatInput(this); calculateRow(this)"></td>
+                            <td class="text-center action-col"><button class="btn-delete" onclick="deleteRow(this)">✕</button></td>
+                        `;
+                        tbody.appendChild(row);
+
+                        const descElem = row.querySelector(".item-desc");
+                        descElem.value = item.desc || '';
+                        autoResize(descElem); 
+                        
+                        let qtyInput = row.querySelector(".qty");
+                        let priceInput = row.querySelector(".price");
+                        let amountInput = row.querySelector(".amount");
+
+                        qtyInput.value = item.qty || '1';
+                        priceInput.value = item.price || '0';
+                        amountInput.value = item.amount || '0';
+
+                        formatInput(qtyInput); formatInput(priceInput); formatInput(amountInput);
+                        calculateRow(qtyInput);
+                    });
+                } else {
+                    addRow(); 
+                }
+                
+                updateRowNumbers(); calculateGrandTotal(); 
+                closeHistoryModal(); window.scrollTo(0, 0); 
+            }
+        }
+
+        // --- Utils ตาราง ---
+        function formatInput(input) {
+            let val = input.value.replace(/[^0-9.]/g, '');
+            let parts = val.split('.');
+            if (parts.length > 2) parts = [parts[0], parts.slice(1).join('')];
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            input.value = parts.join('.');
+        }
+        function parseNum(val) { return parseFloat((val||'').toString().replace(/,/g, '')) || 0; }
+        function autoResize(element) { element.style.height = 'auto'; element.style.height = element.scrollHeight + 'px'; }
+        
+        function updateRowNumbers() {
+            document.querySelectorAll("#billTable tbody tr").forEach((row, index) => {
+                row.querySelector(".row-num").innerText = index + 1;
+            });
+        }
+        function addRow() {
+            const tbody = document.querySelector("#billTable tbody");
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td class="text-center row-num"></td>
+                <td>
+                    <input type="hidden" class="stock-id" value="">
+                    <textarea class="item-desc" placeholder="รายละเอียดรายการ" rows="1" oninput="autoResize(this)"></textarea>
+                </td>
+                <td><input type="text" value="1" class="qty" oninput="formatInput(this); calculateRow(this)"></td>
+                <td><input type="text" value="0" class="price" oninput="formatInput(this); calculateRow(this)"></td>
+                <td class="text-right" style="color: #e74c3c;"><span class="row-discount">0.00</span></td>
+                <td><input type="text" value="0" class="amount" oninput="formatInput(this); calculateRow(this)"></td>
+                <td class="text-center action-col"><button class="btn-delete" onclick="deleteRow(this)">✕</button></td>
+            `;
+            tbody.appendChild(row);
+            updateRowNumbers();
+        }
+        function deleteRow(button) {
+            const tbody = document.querySelector("#billTable tbody");
+            if (tbody.children.length > 1) {
+                button.closest("tr").remove();
+                updateRowNumbers(); calculateGrandTotal(); 
+            } else {
+                alert("ไม่สามารถลบได้ ต้องมีอย่างน้อย 1 รายการครับ");
+            }
+        }
+        function calculateRow(element) {
+            const row = element.closest("tr");
+            const qty = parseNum(row.querySelector(".qty").value);
+            const price = parseNum(row.querySelector(".price").value);
+            const amount = parseNum(row.querySelector(".amount").value);
+            let discount = (qty * price) - amount;
+            if (discount < 0) discount = 0; 
+            row.querySelector(".row-discount").innerText = discount.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            calculateGrandTotal();
+        }
+        function calculateGrandTotal() {
+            let sumTotal = 0; 
+            document.querySelectorAll("#billTable tbody tr").forEach(row => { sumTotal += parseNum(row.querySelector(".amount").value); });
+            const beforeVat = (sumTotal * 100) / 107;
+            const vat = (sumTotal * 7) / 107;
+            document.getElementById("sumTotal").innerText = sumTotal.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById("beforeVat").innerText = beforeVat.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById("vatAmount").innerText = vat.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById("netTotal").innerText = sumTotal.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2}); 
+        }
+    </script>
+</body>
+</html>
